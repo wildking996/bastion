@@ -1,0 +1,50 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+.*
+!.github
+!.golangci.yml
+
+# Test binary, built with `go test -c`
+*.test
+!.gitignore
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Build output
+dist/
+bastion
+bastion-*
+
+# Database files
+*.db
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Windows resource files
+rsrc.syso
+*.syso
+
+# Icon file (optional - remove this line if you want to commit your icon)
+# icon.ico

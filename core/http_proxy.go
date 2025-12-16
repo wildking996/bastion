@@ -1,0 +1,253 @@
+package core
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	"bastion/config"
+	"bastion/models"
+)
+
+// HTTPProxySession handles HTTP forward-proxy sessions
+type HTTPProxySession struct {
+	BaseSession
+}
+
+// NewHTTPProxySession creates an HTTP proxy session
+func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HTTPProxySession {
+	return &HTTPProxySession{
+		BaseSession: BaseSession{
+			Mapping:        mapping,
+			Bastions:       bastions,
+			stopChan:       make(chan struct{}),
+			maxConnections: int32(config.Settings.MaxSessionConnections),
+			httpParsers:    make(map[string]*HTTPStreamParser),
+		},
+	}
+}
+
+// Start starts the HTTP proxy session
+func (s *HTTPProxySession) Start() error {
+	addr := fmt.Sprintf("%s:%d", s.Mapping.LocalHost, s.Mapping.LocalPort)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return NewResourceBusyError(fmt.Sprintf("Port %d is already in use", s.Mapping.LocalPort))
+	}
+
+	s.listener = listener
+	log.Printf("HTTP Proxy started: %s", addr)
+
+	s.wg.Add(1)
+	go s.acceptLoop()
+
+	return nil
+}
+
+// acceptLoop accepts incoming HTTP proxy connections
+func (s *HTTPProxySession) acceptLoop() {
+	defer s.wg.Done()
+
+	for {
+		select {
+		case <-s.stopChan:
+			return
+		default:
+		}
+
+		conn, err := s.listener.Accept()
+		if err != nil {
+			select {
+			case <-s.stopChan:
+				return
+			default:
+				log.Printf("Accept error: %v", err)
+				continue
+			}
+		}
+
+		// Enforce connection limit
+		if atomic.LoadInt32(&s.activeConns) >= s.maxConnections {
+			log.Printf("Connection limit reached (%d), rejecting new connection", s.maxConnections)
+			conn.Close()
+			continue
+		}
+
+		s.wg.Add(1)
+		go s.handleHTTPClientWithRecover(conn)
+	}
+}
+
+// handleHTTPClientWithRecover processes a client with panic recovery
+func (s *HTTPProxySession) handleHTTPClientWithRecover(conn net.Conn) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in handleHTTPClient: %v", r)
+		}
+	}()
+	s.handleHTTPClient(conn)
+}
+
+// handleHTTPClient handles an HTTP proxy client connection
+func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
+	defer s.wg.Done()
+	defer clientConn.Close()
+
+	atomic.AddInt32(&s.activeConns, 1)
+	defer atomic.AddInt32(&s.activeConns, -1)
+
+	clientAddr := clientConn.RemoteAddr().String()
+	localAddr := clientConn.LocalAddr().String()
+
+	// Handshake timeout (shared with SOCKS5 settings)
+	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.Socks5HandshakeTimeoutSeconds) * time.Second)); err != nil {
+		log.Printf("[HTTP] Failed to set handshake deadline for client %s: %v", clientAddr, err)
+	}
+
+	reader := bufio.NewReader(clientConn)
+	req, err := http.ReadRequest(reader)
+	if err != nil {
+		log.Printf("[HTTP] Failed to parse request from %s: %v", clientAddr, err)
+		sendSimpleHTTPError(clientConn, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	targetHost, targetPort, err := parseProxyTarget(req)
+	if err != nil {
+		log.Printf("[HTTP] Invalid target from %s: %v", clientAddr, err)
+		sendSimpleHTTPError(clientConn, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	remoteAddr := net.JoinHostPort(targetHost, strconv.Itoa(targetPort))
+	connID := fmt.Sprintf("%s->%s", clientAddr, remoteAddr)
+
+	if config.Settings.LogLevel == "DEBUG" {
+		log.Printf("[HTTP] New connection: client=%s, local=%s, method=%s, target=%s",
+			clientAddr, localAddr, req.Method, remoteAddr)
+	}
+
+	var remoteConn net.Conn
+
+	// Connect via bastion chain or directly
+	if len(s.Bastions) == 0 {
+		remoteConn, err = net.DialTimeout("tcp", remoteAddr, 10*time.Second)
+	} else {
+		bastionChain := getBastionChainNames(s.Bastions)
+		remoteConn, err = s.dialWithRetry(remoteAddr, clientAddr, bastionChain)
+	}
+	if err != nil {
+		log.Printf("[HTTP] Failed to dial remote %s from client %s: %v", remoteAddr, clientAddr, err)
+		sendSimpleHTTPError(clientConn, http.StatusBadGateway, "Bad Gateway")
+		return
+	}
+	defer remoteConn.Close()
+
+	// Handshake complete; switch to session timeout
+	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
+		log.Printf("[HTTP] Failed to set session deadline for client %s: %v", clientAddr, err)
+	}
+	if err := remoteConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
+		log.Printf("[HTTP] Failed to set session deadline for remote %s: %v", remoteAddr, err)
+	}
+
+	if strings.EqualFold(req.Method, http.MethodConnect) {
+		if _, err := clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+			return
+		}
+		s.pipe(clientConn, remoteConn, connID)
+		return
+	}
+
+	// Standard HTTP request: forward once and copy response
+	if req.Host == "" {
+		req.Host = net.JoinHostPort(targetHost, strconv.Itoa(targetPort))
+	}
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	req.RequestURI = ""
+	req.Close = true
+
+	trackingWriter := &proxyTrackingWriter{
+		dst:       remoteConn,
+		session:   &s.BaseSession,
+		direction: "request",
+		connID:    connID,
+	}
+
+	if err := req.Write(trackingWriter); err != nil {
+		log.Printf("[HTTP] Failed to write request to %s: %v", remoteAddr, err)
+		return
+	}
+
+	// Copy response while updating stats and audit logs
+	s.copyData(clientConn, remoteConn, "response", connID)
+}
+
+// proxyTrackingWriter updates stats and audit data while writing
+type proxyTrackingWriter struct {
+	dst       io.Writer
+	session   *BaseSession
+	direction string
+	connID    string
+}
+
+func (w *proxyTrackingWriter) Write(p []byte) (int, error) {
+	if w.session != nil {
+		if w.direction == "request" {
+			atomic.AddInt64(&w.session.bytesUp, int64(len(p)))
+		} else {
+			atomic.AddInt64(&w.session.bytesDown, int64(len(p)))
+		}
+		if config.Settings.AuditEnabled {
+			w.session.feedHTTPParser(p, w.direction, w.connID)
+		}
+	}
+	return w.dst.Write(p)
+}
+
+// parseProxyTarget parses the proxy target from the request
+func parseProxyTarget(req *http.Request) (string, int, error) {
+	hostPort := req.Host
+	if hostPort == "" && req.URL != nil {
+		hostPort = req.URL.Host
+	}
+	if hostPort == "" {
+		return "", 0, fmt.Errorf("missing Host")
+	}
+
+	host, portStr, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		// Add default port if missing
+		if strings.Contains(err.Error(), "missing port in address") {
+			host = hostPort
+			if strings.EqualFold(req.Method, http.MethodConnect) || req.URL.Scheme == "https" {
+				return host, 443, nil
+			}
+			return host, 80, nil
+		}
+		return "", 0, err
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid port: %w", err)
+	}
+
+	return host, port, nil
+}
+
+// sendSimpleHTTPError writes a simple HTTP error response
+func sendSimpleHTTPError(conn net.Conn, status int, message string) {
+	body := message + "\r\n"
+	resp := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
+		status, http.StatusText(status), len(body), body)
+	_, _ = conn.Write([]byte(resp))
+}

@@ -1,0 +1,349 @@
+// Internationalization configuration
+const i18nConfig = {
+  zh: {
+    // Page titles
+    titleIndex: "跳板机控制台 - Bastion",
+    titleLogs: "HTTP 流量日志 - Bastion",
+    titleErrors: "错误日志 - Bastion",
+
+    // Common
+    console: "跳板机控制台",
+    httpLogs: "HTTP 流量日志",
+    back: "返回控制台",
+    refresh: "刷新",
+    clear: "清空",
+    delete: "删除",
+    cancel: "取消",
+    save: "保存",
+    edit: "修改",
+    copy: "复制",
+    add: "添加",
+    create: "创建",
+    reset: "重置",
+    close: "关闭",
+    confirm: "确定",
+
+    // Bastion section
+    addBastion: "添加跳板机",
+    editBastion: "修改跳板机",
+    bastionList: "跳板机列表",
+    host: "主机",
+    port: "端口",
+    username: "用户",
+    password: "密码",
+    privateKey: "私钥",
+    passphrase: "口令",
+    identifier: "标识",
+    address: "地址",
+    user: "用户",
+    auth: "认证",
+    operation: "操作",
+    editConfig: "修改配置",
+    copyConfig: "复制配置",
+    deleteConfirm: "删除?",
+    saveChanges: "保存修改",
+    addSuccess: "添加成功",
+    editSuccess: "修改成功",
+    configCopied: "配置已复制到表单，请修改后添加",
+
+    // Mapping section
+    addMapping: "新增映射",
+    editMapping: "修改映射",
+    mappingList: "映射列表",
+    type: "类型",
+    local: "本地",
+    remote: "远端",
+    remoteTarget: "远端目标",
+    chain: "链路",
+    traffic: "流量",
+    localPort: "本地端口",
+    remoteHost: "远端主机",
+    remotePort: "远端端口",
+    selectOrder: "选择顺序",
+    dynamicTarget: "目标由客户端动态指定",
+    editLocalPortNote: "修改本地端口相当于创建新映射",
+    mappingSaved: "已保存修改",
+    mappingCreated: "已创建映射",
+    configCopiedPortIncremented: "配置已复制，本地端口已自动+1",
+    autoStart: "自动启动",
+    autoStartUpdated: "自动启动设置已更新",
+
+    // Logs page
+    httpTrafficLogs: "HTTP 流量日志",
+    logsDescription: "记录 HTTP 请求和响应配对，最多保存 1000 条",
+    clearAllLogs: "确定清空所有日志?",
+    logsList: "日志列表",
+    total: "共",
+    items: "条",
+    autoRefresh: "自动刷新",
+    seconds: "秒",
+    time: "时间",
+    connection: "连接",
+    method: "方法",
+    url: "URL",
+    status: "状态",
+    request: "请求",
+    response: "响应",
+    pair: "配对",
+    requestResponse: "请求/响应",
+    noRequest: "无",
+    noResponse: "无",
+    viewRequest: "查看请求",
+    viewResponse: "查看响应",
+    viewPair: "查看配对",
+    viewRequestResponse: "查看请求/响应",
+    duration: "耗时",
+
+    // Log details
+    httpRequestDetails: "HTTP 请求详情",
+    httpResponseDetails: "HTTP 响应详情",
+    httpRequestResponsePair: "HTTP 请求响应配对",
+    connectionId: "连接ID",
+    protocol: "协议",
+    size: "大小",
+    fullRequest: "完整请求（Header + Body）",
+    fullResponse: "完整响应（Header + Body）",
+    noRequestData: "无请求数据",
+    noResponseData: "无响应数据",
+    copyRequest: "复制请求",
+    copyResponse: "复制响应",
+    copyBoth: "复制请求和响应",
+    compression: "压缩",
+    gzipDecompressed: "Gzip 已解压",
+    notCompressed: "未压缩",
+    requestMethod: "请求方法",
+    requestSize: "请求大小",
+    responseSize: "响应大小",
+
+    // Messages
+    loadLogsFailed: "加载日志失败",
+    logsCleared: "日志已清空",
+    clearFailed: "清空失败",
+    noContentToCopy: "无内容可复制",
+    copiedToClipboard: "已复制到剪贴板",
+    copiedRequestAndResponse: "已复制请求和响应到剪贴板",
+
+    // Error logs page
+    errorLogs: "错误日志",
+    backToConsole: "返回控制台",
+    recentErrors: "最近错误",
+    last100: "最近100条",
+    noErrors: "无错误",
+    errors: "条错误",
+    level: "级别",
+    source: "来源",
+    message: "消息",
+    detail: "详情",
+    view: "查看",
+    errorDetail: "错误详情",
+    id: "ID",
+    detailInfo: "详细信息",
+    context: "上下文",
+    stackTrace: "堆栈跟踪",
+    clearConfirm: "确定清空所有错误日志?",
+
+    // Shutdown feature
+    shutdown: "关闭程序",
+    shutdownConfirm: "关闭程序需要输入确认码",
+    generateCode: "生成确认码",
+    confirmationCode: "确认码",
+    enterCode: "请输入6位确认码",
+    shutdownSystem: "关闭系统",
+    codeGenerated: "确认码已生成",
+    codeExpired: "确认码已过期",
+    invalidCode: "确认码错误",
+    shutdownInitiated: "系统正在关闭...",
+    expiresIn: "有效期",
+  },
+
+  en: {
+    // Page titles
+    titleIndex: "Bastion Console - Bastion",
+    titleLogs: "HTTP Traffic Logs - Bastion",
+    titleErrors: "Error Logs - Bastion",
+
+    // Common
+    console: "Bastion Console",
+    httpLogs: "HTTP Traffic Logs",
+    back: "Back to Console",
+    refresh: "Refresh",
+    clear: "Clear",
+    delete: "Delete",
+    cancel: "Cancel",
+    save: "Save",
+    edit: "Edit",
+    copy: "Copy",
+    add: "Add",
+    create: "Create",
+    reset: "Reset",
+    close: "Close",
+    confirm: "Confirm",
+
+    // Bastion section
+    addBastion: "Add Bastion",
+    editBastion: "Edit Bastion",
+    bastionList: "Bastion List",
+    host: "Host",
+    port: "Port",
+    username: "Username",
+    password: "Password",
+    privateKey: "Private Key",
+    passphrase: "Passphrase",
+    identifier: "Identifier",
+    address: "Address",
+    user: "User",
+    auth: "Auth",
+    operation: "Operation",
+    editConfig: "Edit Config",
+    copyConfig: "Copy Config",
+    deleteConfirm: "Delete?",
+    saveChanges: "Save Changes",
+    addSuccess: "Added successfully",
+    editSuccess: "Updated successfully",
+    configCopied: "Config copied to form, please modify and add",
+
+    // Mapping section
+    addMapping: "Add Mapping",
+    editMapping: "Edit Mapping",
+    mappingList: "Mapping List",
+    type: "Type",
+    local: "Local",
+    remote: "Remote",
+    remoteTarget: "Remote Target",
+    chain: "Chain",
+    traffic: "Traffic",
+    localPort: "Local Port",
+    remoteHost: "Remote Host",
+    remotePort: "Remote Port",
+    selectOrder: "Select Order",
+    dynamicTarget: "Target dynamically specified by client",
+    editLocalPortNote: "Editing local port creates a new mapping",
+    mappingSaved: "Mapping saved",
+    mappingCreated: "Mapping created",
+    configCopiedPortIncremented: "Config copied, local port auto-incremented",
+    autoStart: "Auto Start",
+    autoStartUpdated: "Auto-start setting updated",
+
+    // Logs page
+    httpTrafficLogs: "HTTP Traffic Logs",
+    logsDescription:
+      "Records HTTP request and response pairs, max 1000 entries",
+    clearAllLogs: "Clear all logs?",
+    logsList: "Logs List",
+    total: "Total",
+    items: "items",
+    autoRefresh: "Auto Refresh",
+    seconds: "sec",
+    time: "Time",
+    connection: "Connection",
+    method: "Method",
+    url: "URL",
+    status: "Status",
+    request: "Request",
+    response: "Response",
+    pair: "Pair",
+    requestResponse: "Req/Resp",
+    noRequest: "None",
+    noResponse: "None",
+    viewRequest: "View Request",
+    viewResponse: "View Response",
+    viewPair: "View Pair",
+    viewRequestResponse: "View Request/Response",
+    duration: "Duration",
+
+    // Log details
+    httpRequestDetails: "HTTP Request Details",
+    httpResponseDetails: "HTTP Response Details",
+    httpRequestResponsePair: "HTTP Request-Response Pair",
+    connectionId: "Connection ID",
+    protocol: "Protocol",
+    size: "Size",
+    fullRequest: "Full Request (Header + Body)",
+    fullResponse: "Full Response (Header + Body)",
+    noRequestData: "No request data",
+    noResponseData: "No response data",
+    copyRequest: "Copy Request",
+    copyResponse: "Copy Response",
+    copyBoth: "Copy Request & Response",
+    compression: "Compression",
+    gzipDecompressed: "Gzip Decompressed",
+    notCompressed: "Not Compressed",
+    requestMethod: "Request Method",
+    requestSize: "Request Size",
+    responseSize: "Response Size",
+
+    // Messages
+    loadLogsFailed: "Failed to load logs",
+    logsCleared: "Logs cleared",
+    clearFailed: "Failed to clear",
+    noContentToCopy: "No content to copy",
+    copiedToClipboard: "Copied to clipboard",
+    copiedRequestAndResponse: "Copied request and response to clipboard",
+
+    // Error logs page
+    errorLogs: "Error Logs",
+    backToConsole: "Back to Console",
+    recentErrors: "Recent Errors",
+    last100: "Last 100",
+    noErrors: "No Errors",
+    errors: "errors",
+    level: "Level",
+    source: "Source",
+    message: "Message",
+    detail: "Detail",
+    view: "View",
+    errorDetail: "Error Detail",
+    id: "ID",
+    detailInfo: "Detail Information",
+    context: "Context",
+    stackTrace: "Stack Trace",
+    clearConfirm: "Clear all error logs?",
+
+    // Shutdown feature
+    shutdown: "Shutdown",
+    shutdownConfirm: "Shutdown requires confirmation code",
+    generateCode: "Generate Code",
+    confirmationCode: "Confirmation Code",
+    enterCode: "Enter 6-digit code",
+    shutdownSystem: "Shutdown System",
+    codeGenerated: "Code generated",
+    codeExpired: "Code expired",
+    invalidCode: "Invalid code",
+    shutdownInitiated: "System shutting down...",
+    expiresIn: "Expires in",
+  },
+};
+
+// I18n utility
+class I18n {
+  constructor() {
+    // Default to English if no language preference is stored
+    this.currentLang = localStorage.getItem("bastion_lang") || "en";
+    this.translations = i18nConfig;
+  }
+
+  setLanguage(lang) {
+    if (this.translations[lang]) {
+      this.currentLang = lang;
+      localStorage.setItem("bastion_lang", lang);
+      return true;
+    }
+    return false;
+  }
+
+  getLanguage() {
+    return this.currentLang;
+  }
+
+  t(key) {
+    return this.translations[this.currentLang][key] || key;
+  }
+
+  // Get all translations for current language
+  getAll() {
+    return this.translations[this.currentLang];
+  }
+}
+
+// Export for use in HTML files
+const i18n = new I18n();
