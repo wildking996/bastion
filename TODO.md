@@ -58,9 +58,11 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 - **复杂度**: 低
 
 #### 4. Prometheus 指标 (Metrics Export)
-- **描述**: 当前已有 `/api/metrics`(JSON)；补充 Prometheus 格式导出
+- **状态**: ✅ 已实现（基础版）
+- **描述**: 已提供 `/metrics`（Prometheus exposition）；`/api/metrics` 仍为 JSON
 - **实现方式**:
-  - 增加 `/metrics`（Prometheus exposition）或在现有 `/api/metrics` 增加 `?format=prom`
+  - 提供 `/metrics`（Prometheus exposition）
+  - 需要补充时可扩展为标准 `go_*/process_*` 全量指标
   - 关键指标: 连接数、流量、错误率、会话状态
   - Go runtime 指标
 - **影响**: 可观测性 ⭐⭐⭐⭐⭐
@@ -216,7 +218,7 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 3. ⏳ 暗色主题
 
 ### 中期 (1 个月)
-4. ⏳ Metrics：补 Prometheus 格式导出
+4. ✅ Metrics：Prometheus `/metrics`
 5. ⏳ WebSocket 支持
 6. ⏳ 日志搜索过滤
 

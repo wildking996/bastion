@@ -7,6 +7,8 @@ import (
 	"bastion/models"
 	"bastion/service"
 	"bastion/state"
+	"bastion/version"
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -346,12 +349,20 @@ func HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, health)
 }
 
-// GetMetrics gathers system metrics
-func GetMetrics(c *gin.Context) {
+type metricsSnapshot struct {
+	timestamp        int64
+	sessionCount     int
+	totalConnections int32
+	totalBytesUp     int64
+	totalBytesDown   int64
+	httpLogCount     int
+	mem              runtime.MemStats
+}
+
+func collectMetricsSnapshot() metricsSnapshot {
 	state.Global.RLock()
 	sessionCount := len(state.Global.Sessions)
 
-	// Sum total connections and traffic
 	var totalConnections int32
 	var totalBytesUp, totalBytesDown int64
 
@@ -363,37 +374,112 @@ func GetMetrics(c *gin.Context) {
 	}
 	state.Global.RUnlock()
 
-	// Get HTTP log totals
 	_, httpLogCount := service.GlobalServices.Audit.GetHTTPLogs(1, 1)
 
-	// Collect system resource usage
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+
+	return metricsSnapshot{
+		timestamp:        time.Now().Unix(),
+		sessionCount:     sessionCount,
+		totalConnections: totalConnections,
+		totalBytesUp:     totalBytesUp,
+		totalBytesDown:   totalBytesDown,
+		httpLogCount:     httpLogCount,
+		mem:              mem,
+	}
+}
+
+// GetMetrics gathers system metrics
+func GetMetrics(c *gin.Context) {
+	s := collectMetricsSnapshot()
 
 	metrics := gin.H{
-		"timestamp": time.Now().Unix(),
+		"timestamp": s.timestamp,
 		"sessions": gin.H{
-			"total":       sessionCount,
-			"connections": totalConnections,
+			"total":       s.sessionCount,
+			"connections": s.totalConnections,
 		},
 		"traffic": gin.H{
-			"bytes_up":   totalBytesUp,
-			"bytes_down": totalBytesDown,
-			"total":      totalBytesUp + totalBytesDown,
+			"bytes_up":   s.totalBytesUp,
+			"bytes_down": s.totalBytesDown,
+			"total":      s.totalBytesUp + s.totalBytesDown,
 		},
 		"http_logs": gin.H{
-			"total": httpLogCount,
+			"total": s.httpLogCount,
 		},
 		"system": gin.H{
 			"goroutines":   runtime.NumGoroutine(),
-			"memory_alloc": m.Alloc,
-			"memory_total": m.TotalAlloc,
-			"memory_sys":   m.Sys,
-			"gc_runs":      m.NumGC,
+			"memory_alloc": s.mem.Alloc,
+			"memory_total": s.mem.TotalAlloc,
+			"memory_sys":   s.mem.Sys,
+			"gc_runs":      s.mem.NumGC,
 		},
 	}
 
 	c.JSON(http.StatusOK, metrics)
+}
+
+func promLabelEscape(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	return s
+}
+
+// GetPrometheusMetrics exposes Prometheus exposition format metrics at /metrics.
+func GetPrometheusMetrics(c *gin.Context) {
+	s := collectMetricsSnapshot()
+
+	var buf bytes.Buffer
+
+	buf.WriteString("# HELP bastion_build_info Build information.\n")
+	buf.WriteString("# TYPE bastion_build_info gauge\n")
+	fmt.Fprintf(
+		&buf,
+		"bastion_build_info{version=\"%s\",commit=\"%s\",build_time=\"%s\"} 1\n",
+		promLabelEscape(version.Version),
+		promLabelEscape(version.CommitHash),
+		promLabelEscape(version.BuildTime),
+	)
+
+	buf.WriteString("# HELP bastion_sessions_total Number of configured/running sessions.\n")
+	buf.WriteString("# TYPE bastion_sessions_total gauge\n")
+	fmt.Fprintf(&buf, "bastion_sessions_total %d\n", s.sessionCount)
+
+	buf.WriteString("# HELP bastion_sessions_connections Active connections across sessions.\n")
+	buf.WriteString("# TYPE bastion_sessions_connections gauge\n")
+	fmt.Fprintf(&buf, "bastion_sessions_connections %d\n", s.totalConnections)
+
+	buf.WriteString("# HELP bastion_traffic_bytes_up_total Total uploaded bytes.\n")
+	buf.WriteString("# TYPE bastion_traffic_bytes_up_total counter\n")
+	fmt.Fprintf(&buf, "bastion_traffic_bytes_up_total %d\n", s.totalBytesUp)
+
+	buf.WriteString("# HELP bastion_traffic_bytes_down_total Total downloaded bytes.\n")
+	buf.WriteString("# TYPE bastion_traffic_bytes_down_total counter\n")
+	fmt.Fprintf(&buf, "bastion_traffic_bytes_down_total %d\n", s.totalBytesDown)
+
+	buf.WriteString("# HELP bastion_http_logs_total Total HTTP audit log entries kept in memory.\n")
+	buf.WriteString("# TYPE bastion_http_logs_total gauge\n")
+	fmt.Fprintf(&buf, "bastion_http_logs_total %d\n", s.httpLogCount)
+
+	buf.WriteString("# HELP bastion_go_goroutines Number of goroutines.\n")
+	buf.WriteString("# TYPE bastion_go_goroutines gauge\n")
+	fmt.Fprintf(&buf, "bastion_go_goroutines %d\n", runtime.NumGoroutine())
+
+	buf.WriteString("# HELP bastion_memory_alloc_bytes Bytes of allocated heap objects.\n")
+	buf.WriteString("# TYPE bastion_memory_alloc_bytes gauge\n")
+	fmt.Fprintf(&buf, "bastion_memory_alloc_bytes %d\n", s.mem.Alloc)
+
+	buf.WriteString("# HELP bastion_memory_sys_bytes Bytes obtained from the OS.\n")
+	buf.WriteString("# TYPE bastion_memory_sys_bytes gauge\n")
+	fmt.Fprintf(&buf, "bastion_memory_sys_bytes %d\n", s.mem.Sys)
+
+	buf.WriteString("# HELP bastion_gc_runs_total Number of completed GC cycles.\n")
+	buf.WriteString("# TYPE bastion_gc_runs_total counter\n")
+	fmt.Fprintf(&buf, "bastion_gc_runs_total %d\n", s.mem.NumGC)
+
+	c.Data(http.StatusOK, "text/plain; version=0.0.4; charset=utf-8", buf.Bytes())
 }
 
 // GetErrorLogs returns recent error logs

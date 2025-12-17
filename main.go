@@ -107,6 +107,9 @@ func main() {
 		c.Redirect(http.StatusMovedPermanently, "/web/index.html")
 	})
 
+	// Prometheus metrics (exposition format)
+	r.GET("/metrics", handlers.GetPrometheusMetrics)
+
 	// API routes
 	api := r.Group("/api")
 	{
