@@ -27,14 +27,15 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 ### 🎯 P0 - 立即实现 (High Impact, Low Effort)
 
 #### 1. 运行中配置不可修改 (Immutable While Running)
-- **描述**: 启用中(运行中)的 Mapping/Bastion 不允许被修改，避免运行态与 SQLite 数据不一致
+- **状态**: ✅ 已实现
+- **描述**: 启用中(运行中)的 Mapping/Bastion 不允许被修改，避免运行态与 SQLite 数据不一致（禁止绕过接口直接改 SQLite）
 - **约束**:
   - `POST /api/mappings` 仅允许创建，不允许 upsert（存在即冲突）
-  - `PUT /api/mappings/:id` 仅允许在停止状态更新；更新时禁止修改 IP/端口/类型，仅允许调整 bastion chain、auto_start 等
-  - Bastion 被任何运行中的 Mapping 引用时，禁止更新
-  - Bastion 更新时禁止修改 host/port/name（仅允许更新用户名/密码/密钥等凭据字段）
-  - Mapping 运行中禁止删除，必须先 stop
-- **操作流程**: stop → 修改(通过 API) → start
+  - `PUT /api/mappings/:id` 仅允许在停止状态更新；更新时禁止修改 `local_host/local_port/remote_host/remote_port/type`，仅允许调整 `chain`、`auto_start` 等
+  - Bastion 被任何运行中的 Mapping 引用时，禁止更新（返回 `409` 并提示先 stop 相关 mapping）
+  - Bastion 更新时禁止修改 `host/port/name`，仅允许更新 `username/password/pkey_path/pkey_passphrase` 等凭据字段
+  - Mapping 运行中禁止删除，必须先 stop（返回 `409`）
+- **操作流程**: stop → 修改(通过 API) → start（若需改 IP/端口/类型：stop → delete → create → start）
 - **影响**: 一致性与可维护性 ⭐⭐⭐⭐⭐
 - **复杂度**: 低
 
@@ -210,7 +211,7 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 ## 实施建议
 
 ### 短期 (1-2 周)
-1. ⏳ 运行中配置不可修改（API 409 + 先 stop 再改）
+1. ✅ 运行中配置不可修改（API 409 + 先 stop 再改）
 2. ⏳ Docker 支持
 3. ⏳ 暗色主题
 
