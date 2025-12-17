@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -267,7 +268,18 @@ type HTTPLogsResponse struct {
 
 // GetHTTPLogs fetches paginated HTTP logs
 func (c *Client) GetHTTPLogs(page, pageSize int) ([]*core.HTTPLog, int, error) {
-	path := fmt.Sprintf("/api/http-logs?page=%d&page_size=%d", page, pageSize)
+	return c.GetHTTPLogsFiltered(page, pageSize, nil)
+}
+
+// GetHTTPLogsFiltered fetches paginated HTTP logs with optional query params.
+func (c *Client) GetHTTPLogsFiltered(page, pageSize int, query url.Values) ([]*core.HTTPLog, int, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set("page", fmt.Sprintf("%d", page))
+	query.Set("page_size", fmt.Sprintf("%d", pageSize))
+
+	path := "/api/http-logs?" + query.Encode()
 	resp, err := c.doRequest("GET", path, nil)
 	if err != nil {
 		return nil, 0, err

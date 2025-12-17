@@ -107,7 +107,7 @@ Key flags (see `./bastion --help` for full list):
 - Bastions: `GET /api/bastions`, `POST /api/bastions`, `PUT /api/bastions/:id`, `DELETE /api/bastions/:id`
 - Mappings: `GET /api/mappings`, `POST /api/mappings` (create only), `PUT /api/mappings/:id` (update when stopped), `DELETE /api/mappings/:id`, `POST /api/mappings/:id/start`, `POST /api/mappings/:id/stop`
 - Statistics: `GET /api/stats`
-- HTTP audit logs: `GET /api/http-logs`, `GET /api/http-logs/:id`, `DELETE /api/http-logs`
+- HTTP audit logs: `GET /api/http-logs` (supports `q/regex/method/host/status/since/until`), `GET /api/http-logs/:id`, `DELETE /api/http-logs`
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
 - Shutdown (confirmation code): `POST /api/shutdown/generate-code`, `POST /api/shutdown/verify`
 - Health/metrics: `GET /api/health`, `GET /api/metrics`

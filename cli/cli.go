@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bastion/config"
+	"bastion/core"
 	"bastion/models"
 	"bastion/service"
 	"bastion/state"
@@ -119,6 +120,7 @@ func (c *CLI) showHelp() {
 		{"", ""},
 		{"HTTP AUDIT:", ""},
 		{"http list [page]", "List HTTP logs (paginated)"},
+		{"http search <keyword> [page]", "Search HTTP logs (keyword filter)"},
 		{"http show <id>", "Show HTTP request/response details"},
 		{"http clear", "Clear all HTTP logs"},
 		{"", ""},
@@ -749,6 +751,24 @@ func (c *CLI) handleHTTPCommand(args []string) {
 			}
 		}
 		c.listHTTPLogs(page)
+	case "search", "find":
+		if len(args) < 2 {
+			fmt.Println("Usage: http search <keyword> [page]")
+			return
+		}
+		page := 1
+		if len(args) > 2 {
+			if p, err := strconv.Atoi(args[len(args)-1]); err == nil {
+				page = p
+				args = args[:len(args)-1]
+			}
+		}
+		q := strings.TrimSpace(strings.Join(args[1:], " "))
+		if q == "" {
+			fmt.Println("Usage: http search <keyword> [page]")
+			return
+		}
+		c.searchHTTPLogs(q, page)
 	case "show", "get":
 		if len(args) < 2 {
 			fmt.Println("Usage: http show <id>")
@@ -783,14 +803,52 @@ func (c *CLI) listHTTPLogs(page int) {
 	PrintBanner(fmt.Sprintf("HTTP Logs (Page %d/%d, Total: %d)", page, totalPages, total))
 	fmt.Println()
 
-	fmt.Printf("%-6s %-8s %-25s %-35s %-10s\n", "ID", "Method", "Host", "URL", "Time")
-	fmt.Println(strings.Repeat("-", 90))
+	fmt.Printf("%-6s %-6s %-8s %-25s %-35s %-10s\n", "ID", "Code", "Method", "Host", "URL", "Time")
+	fmt.Println(strings.Repeat("-", 100))
 
 	for _, log := range logs {
 		timestamp := log.Timestamp.Format("15:04:05")
 
-		fmt.Printf("%-6d %-8s %-25s %-35s %-10s\n",
+		fmt.Printf("%-6d %-6d %-8s %-25s %-35s %-10s\n",
 			log.ID,
+			log.StatusCode,
+			log.Method,
+			truncate(log.Host, 25),
+			truncate(log.URL, 35),
+			timestamp,
+		)
+	}
+
+	fmt.Printf("\nUse 'http show <id>' to view details\n")
+}
+
+func (c *CLI) searchHTTPLogs(query string, page int) {
+	if !config.Settings.AuditEnabled {
+		fmt.Println("HTTP audit is disabled. Enable with --audit flag.")
+		return
+	}
+
+	pageSize := 20
+	logs, total := service.GlobalServices.Audit.QueryHTTPLogs(core.HTTPLogFilter{Query: query}, page, pageSize)
+	if total == 0 {
+		fmt.Println("No HTTP logs available.")
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+
+	fmt.Println()
+	PrintBanner(fmt.Sprintf("HTTP Logs Search (Page %d/%d, Total: %d)", page, totalPages, total))
+	fmt.Println()
+
+	fmt.Printf("%-6s %-6s %-8s %-25s %-35s %-10s\n", "ID", "Code", "Method", "Host", "URL", "Time")
+	fmt.Println(strings.Repeat("-", 100))
+
+	for _, log := range logs {
+		timestamp := log.Timestamp.Format("15:04:05")
+		fmt.Printf("%-6d %-6d %-8s %-25s %-35s %-10s\n",
+			log.ID,
+			log.StatusCode,
 			log.Method,
 			truncate(log.Host, 25),
 			truncate(log.URL, 35),

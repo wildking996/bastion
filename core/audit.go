@@ -3,6 +3,7 @@ package core
 import (
 	"bastion/config"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +29,7 @@ type HTTPLog struct {
 	URL             string    `json:"url"`
 	Host            string    `json:"host"`
 	Protocol        string    `json:"protocol"`
+	StatusCode      int       `json:"status_code"`
 	Request         string    `json:"request"`          // Full request (headers and body)
 	Response        string    `json:"response"`         // Full response (headers and body)
 	ResponseDecoded string    `json:"response_decoded"` // Decompressed response (if gzip)
@@ -121,37 +123,7 @@ func (a *Auditor) saveHTTPLog(httpLog *HTTPLog) {
 
 // GetHTTPLogs returns paginated HTTP logs
 func (a *Auditor) GetHTTPLogs(page, pageSize int) ([]*HTTPLog, int) {
-	a.httpMu.RLock()
-	defer a.httpMu.RUnlock()
-
-	total := len(a.httpLogs)
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
-
-	// Compute pagination
-	start := (page - 1) * pageSize
-	end := start + pageSize
-
-	if start >= total {
-		return []*HTTPLog{}, total
-	}
-
-	if end > total {
-		end = total
-	}
-
-	// Return latest records (descending)
-	result := make([]*HTTPLog, end-start)
-	for i := 0; i < end-start; i++ {
-		result[i] = a.httpLogs[total-1-start-i]
-	}
-
-	return result, total
+	return a.QueryHTTPLogs(HTTPLogFilter{}, page, pageSize)
 }
 
 // GetHTTPLogByID fetches a single log by ID
@@ -170,6 +142,95 @@ func (a *Auditor) ClearHTTPLogs() {
 	a.httpLogs = make([]*HTTPLog, 0, a.maxLogs)
 	a.httpLogsMap = make(map[int]*HTTPLog)
 	a.logIDCounter = 0
+}
+
+type HTTPLogFilter struct {
+	Query      string
+	QueryRegex interface{ MatchString(string) bool }
+	Method     string
+	Host       string
+	StatusCode int
+	Since      *time.Time
+	Until      *time.Time
+}
+
+// QueryHTTPLogs returns paginated HTTP logs filtered by optional criteria.
+// Results are returned in descending order (latest first), matching GetHTTPLogs behavior.
+func (a *Auditor) QueryHTTPLogs(filter HTTPLogFilter, page, pageSize int) ([]*HTTPLog, int) {
+	a.httpMu.RLock()
+	defer a.httpMu.RUnlock()
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
+	matched := make([]*HTTPLog, 0, len(a.httpLogs))
+	for i := len(a.httpLogs) - 1; i >= 0; i-- {
+		httpLog := a.httpLogs[i]
+		if httpLog == nil {
+			continue
+		}
+		if !httpLogMatchesFilter(httpLog, filter) {
+			continue
+		}
+		matched = append(matched, httpLog)
+	}
+
+	total := len(matched)
+	start := (page - 1) * pageSize
+	if start >= total {
+		return []*HTTPLog{}, total
+	}
+
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	return matched[start:end], total
+}
+
+func httpLogMatchesFilter(httpLog *HTTPLog, filter HTTPLogFilter) bool {
+	if filter.Method != "" && !strings.EqualFold(httpLog.Method, filter.Method) {
+		return false
+	}
+	if filter.Host != "" && !strings.Contains(strings.ToLower(httpLog.Host), strings.ToLower(filter.Host)) {
+		return false
+	}
+	if filter.StatusCode != 0 && httpLog.StatusCode != filter.StatusCode {
+		return false
+	}
+	if filter.Since != nil && httpLog.Timestamp.Before(*filter.Since) {
+		return false
+	}
+	if filter.Until != nil && httpLog.Timestamp.After(*filter.Until) {
+		return false
+	}
+
+	if filter.Query == "" {
+		return true
+	}
+
+	if filter.QueryRegex != nil {
+		return filter.QueryRegex.MatchString(httpLog.Method) ||
+			filter.QueryRegex.MatchString(httpLog.Host) ||
+			filter.QueryRegex.MatchString(httpLog.URL) ||
+			filter.QueryRegex.MatchString(httpLog.Protocol) ||
+			filter.QueryRegex.MatchString(httpLog.ConnID) ||
+			filter.QueryRegex.MatchString(httpLog.Request) ||
+			filter.QueryRegex.MatchString(httpLog.Response)
+	}
+
+	q := strings.ToLower(filter.Query)
+	return strings.Contains(strings.ToLower(httpLog.Method), q) ||
+		strings.Contains(strings.ToLower(httpLog.Host), q) ||
+		strings.Contains(strings.ToLower(httpLog.URL), q) ||
+		strings.Contains(strings.ToLower(httpLog.Protocol), q) ||
+		strings.Contains(strings.ToLower(httpLog.ConnID), q) ||
+		strings.Contains(strings.ToLower(httpLog.Request), q) ||
+		strings.Contains(strings.ToLower(httpLog.Response), q)
 }
 
 // cleanupStalePairs periodically clears unfinished HTTP pairs to avoid leaks

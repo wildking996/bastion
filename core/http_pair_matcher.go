@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -79,12 +80,14 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 	responseDecoded := ""
 	isGzipped := false
 	respSize := 0
+	statusCode := 0
 	var durationMs int64 = 0
 
 	if response != nil {
 		responseStr = string(response.Data)
 		respSize = len(response.Data)
 		isGzipped, responseDecoded = tryDecompressGzipData(response.Data)
+		statusCode = parseResponseStatusCode(response.Data)
 
 		// Compute latency in milliseconds
 		durationMs = response.Timestamp.Sub(request.Timestamp).Milliseconds()
@@ -97,6 +100,7 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 		URL:             url,
 		Host:            host,
 		Protocol:        protocol,
+		StatusCode:      statusCode,
 		Request:         string(request.Data),
 		Response:        responseStr,
 		ResponseDecoded: responseDecoded,
@@ -105,6 +109,25 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 		IsGzipped:       isGzipped,
 		DurationMs:      durationMs,
 	}
+}
+
+func parseResponseStatusCode(data []byte) int {
+	lines := bytes.SplitN(data, []byte("\r\n"), 2)
+	if len(lines) == 0 {
+		return 0
+	}
+
+	// Expected: HTTP/1.1 200 OK
+	parts := bytes.SplitN(lines[0], []byte(" "), 3)
+	if len(parts) < 2 {
+		return 0
+	}
+
+	code, err := strconv.Atoi(string(parts[1]))
+	if err != nil {
+		return 0
+	}
+	return code
 }
 
 // extractClientInfo extracts client info from connID

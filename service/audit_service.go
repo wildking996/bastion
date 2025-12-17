@@ -19,6 +19,11 @@ func (s *AuditService) GetHTTPLogs(page, pageSize int) ([]*core.HTTPLog, int) {
 	return s.auditor.GetHTTPLogs(page, pageSize)
 }
 
+// QueryHTTPLogs returns paginated HTTP logs filtered by optional criteria.
+func (s *AuditService) QueryHTTPLogs(filter core.HTTPLogFilter, page, pageSize int) ([]*core.HTTPLog, int) {
+	return s.auditor.QueryHTTPLogs(filter, page, pageSize)
+}
+
 // GetHTTPLogByID retrieves a single HTTP log by ID
 func (s *AuditService) GetHTTPLogByID(id int) *core.HTTPLog {
 	return s.auditor.GetHTTPLogByID(id)
