@@ -119,6 +119,7 @@ func main() {
 		// Mapping routes
 		api.GET("/mappings", handlers.ListMappings)
 		api.POST("/mappings", handlers.CreateMapping)
+		api.PUT("/mappings/:id", handlers.UpdateMapping)
 		api.DELETE("/mappings/:id", handlers.DeleteMapping)
 		api.POST("/mappings/:id/start", handlers.StartMapping)
 		api.POST("/mappings/:id/stop", handlers.StopMapping)

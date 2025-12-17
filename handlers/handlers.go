@@ -8,6 +8,7 @@ import (
 	"bastion/service"
 	"bastion/state"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -70,6 +71,46 @@ func UpdateBastion(c *gin.Context) {
 		return
 	}
 
+	// Enforce immutability of bastion name: mappings reference bastions by name.
+	existingBastion, err := service.GlobalServices.Bastion.Get(uint(bastionID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		return
+	}
+	if req.Name != "" && req.Name != existingBastion.Name {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion name is immutable"})
+		return
+	}
+	if req.Host != "" && req.Host != existingBastion.Host {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion host is immutable"})
+		return
+	}
+	if req.Port != 0 && req.Port != existingBastion.Port {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion port is immutable"})
+		return
+	}
+
+	// Disallow updates when referenced by any running mapping session.
+	state.Global.RLock()
+	running := make(map[string]bool, len(state.Global.Sessions))
+	for mappingID := range state.Global.Sessions {
+		running[mappingID] = true
+	}
+	state.Global.RUnlock()
+
+	_, runningMappings, _, checkErr := service.GlobalServices.Bastion.CheckInUse(existingBastion.Name, running)
+	if checkErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"detail": checkErr.Error()})
+		return
+	}
+	if len(runningMappings) > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"detail":           "bastion is referenced by running mapping(s); stop them before updating",
+			"running_mappings": runningMappings,
+		})
+		return
+	}
+
 	bastion, err := service.GlobalServices.Bastion.Update(uint(bastionID), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
@@ -116,6 +157,38 @@ func CreateMapping(c *gin.Context) {
 
 	mapping, err := service.GlobalServices.Mapping.Create(req)
 	if err != nil {
+		if errors.Is(err, service.ErrMappingAlreadyExists) {
+			c.JSON(http.StatusConflict, gin.H{"detail": "mapping already exists; use PUT /api/mappings/:id to update (stopped only)"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true, "id": mapping.ID})
+}
+
+// UpdateMapping updates a mapping when it is not running.
+// Immutable fields: local/remote host/port and type.
+func UpdateMapping(c *gin.Context) {
+	id := c.Param("id")
+
+	var req models.MappingCreate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		return
+	}
+
+	mapping, err := service.GlobalServices.Mapping.Update(id, req)
+	if err != nil {
+		if errors.Is(err, service.ErrMappingRunning) {
+			c.JSON(http.StatusConflict, gin.H{"detail": "mapping is running; stop it before updating"})
+			return
+		}
+		if err.Error() == "mapping not found: "+id {
+			c.JSON(http.StatusNotFound, gin.H{"detail": err.Error()})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
 		return
 	}
@@ -126,6 +199,12 @@ func CreateMapping(c *gin.Context) {
 // DeleteMapping deletes a mapping
 func DeleteMapping(c *gin.Context) {
 	id := c.Param("id")
+
+	// Disallow deleting an enabled (running) mapping to keep runtime state and DB data consistent.
+	if state.Global.SessionExists(id) {
+		c.JSON(http.StatusConflict, gin.H{"detail": "mapping is running; stop it before deleting"})
+		return
+	}
 
 	if err := service.GlobalServices.Mapping.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})

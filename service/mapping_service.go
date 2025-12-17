@@ -4,10 +4,14 @@ import (
 	"bastion/core"
 	"bastion/models"
 	"bastion/state"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
 )
+
+var ErrMappingAlreadyExists = errors.New("mapping already exists")
+var ErrMappingRunning = errors.New("mapping is running")
 
 // MappingService handles mapping business logic
 type MappingService struct {
@@ -91,7 +95,8 @@ func (s *MappingService) GetWithStatus(id string) (*models.Mapping, bool, *core.
 	return mapping, running, stats, nil
 }
 
-// Create creates or updates a mapping
+// Create creates a mapping.
+// This endpoint is intentionally NOT an upsert: if the mapping already exists, it returns ErrMappingAlreadyExists.
 func (s *MappingService) Create(req models.MappingCreate) (*models.Mapping, error) {
 	// Normalize inputs
 	req.Normalize()
@@ -117,49 +122,97 @@ func (s *MappingService) Create(req models.MappingCreate) (*models.Mapping, erro
 		return nil, fmt.Errorf("invalid mapping type: %s", req.Type)
 	}
 
-	// Check if mapping already exists
-	var mapping models.Mapping
-	result := s.db.First(&mapping, "id = ?", id)
-
-	if result.Error == nil {
-		// Update existing mapping
-		mapping.LocalHost = req.LocalHost
-		mapping.LocalPort = req.LocalPort
-		mapping.Type = req.Type
-		mapping.AutoStart = req.AutoStart
-		mapping.SetChain(req.Chain)
-		if req.Type == "tcp" {
-			mapping.RemoteHost = req.RemoteHost
-			mapping.RemotePort = req.RemotePort
-		} else {
-			mapping.RemoteHost = "0.0.0.0"
-			mapping.RemotePort = 0
-		}
-	} else {
-		// Create a new mapping
-		mapping = models.Mapping{
-			ID:        id,
-			LocalHost: req.LocalHost,
-			LocalPort: req.LocalPort,
-			Type:      req.Type,
-			AutoStart: req.AutoStart,
-		}
-		if req.Type == "tcp" {
-			mapping.RemoteHost = req.RemoteHost
-			mapping.RemotePort = req.RemotePort
-		} else {
-			mapping.RemoteHost = "0.0.0.0"
-			mapping.RemotePort = 0
-		}
-		mapping.SetChain(req.Chain)
+	// Ensure mapping does not already exist (no upsert)
+	var existing models.Mapping
+	if err := s.db.First(&existing, "id = ?", id).Error; err == nil {
+		return nil, ErrMappingAlreadyExists
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("failed to check mapping existence: %w", err)
 	}
 
+	// Create a new mapping
+	mapping := models.Mapping{
+		ID:        id,
+		LocalHost: req.LocalHost,
+		LocalPort: req.LocalPort,
+		Type:      req.Type,
+		AutoStart: req.AutoStart,
+	}
+	if req.Type == "tcp" {
+		mapping.RemoteHost = req.RemoteHost
+		mapping.RemotePort = req.RemotePort
+	} else {
+		mapping.RemoteHost = "0.0.0.0"
+		mapping.RemotePort = 0
+	}
+	mapping.SetChain(req.Chain)
+
 	// Persist to database
-	if err := s.db.Save(&mapping).Error; err != nil {
-		return nil, fmt.Errorf("failed to save mapping: %w", err)
+	if err := s.db.Create(&mapping).Error; err != nil {
+		return nil, fmt.Errorf("failed to create mapping: %w", err)
 	}
 
 	return &mapping, nil
+}
+
+// Update updates a mapping when it is not running.
+// Immutable fields: local/remote host/port and type.
+func (s *MappingService) Update(id string, req models.MappingCreate) (*models.Mapping, error) {
+	// Disallow updates while running
+	if s.state.SessionExists(id) {
+		return nil, ErrMappingRunning
+	}
+
+	req.Normalize()
+
+	// Load existing mapping
+	mapping, err := s.Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// ID must match (mapping identity is stable)
+	if req.ID != "" && req.ID != id {
+		return nil, fmt.Errorf("mapping id is immutable")
+	}
+
+	// Enforce immutable address fields (both local and remote)
+	if req.LocalHost != "" && req.LocalHost != mapping.LocalHost {
+		return nil, fmt.Errorf("local_host is immutable")
+	}
+	if req.LocalPort != 0 && req.LocalPort != mapping.LocalPort {
+		return nil, fmt.Errorf("local_port is immutable")
+	}
+
+	// Type is immutable (changing it changes runtime semantics)
+	if req.Type != "" && req.Type != mapping.Type {
+		return nil, fmt.Errorf("type is immutable")
+	}
+
+	// Remote host/port are immutable as well (only meaningful for TCP; still enforce if provided).
+	if req.RemoteHost != "" && req.RemoteHost != mapping.RemoteHost {
+		return nil, fmt.Errorf("remote_host is immutable")
+	}
+	if req.RemotePort != 0 && req.RemotePort != mapping.RemotePort {
+		return nil, fmt.Errorf("remote_port is immutable")
+	}
+
+	// For TCP mappings, require remote host/port to be present so we can enforce immutability.
+	if mapping.Type == "tcp" {
+		if req.RemoteHost == "" || req.RemotePort == 0 {
+			return nil, fmt.Errorf("remote_host and remote_port are required for tcp mapping update")
+		}
+	}
+
+	// Allowed updates
+	mapping.AutoStart = req.AutoStart
+	mapping.SetChain(req.Chain)
+
+	if err := s.db.Save(mapping).Error; err != nil {
+		return nil, fmt.Errorf("failed to update mapping: %w", err)
+	}
+
+	return mapping, nil
 }
 
 // Delete removes a mapping (stopping it first if running)

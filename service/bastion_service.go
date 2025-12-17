@@ -82,19 +82,11 @@ func (s *BastionService) Update(id uint, req models.BastionCreate) (*models.Bast
 	// Normalize inputs
 	req.Normalize()
 
-	// Update fields
-	bastion.Host = req.Host
-	bastion.Port = req.Port
+	// Update fields (name/host/port are immutable because mappings reference bastions by name)
 	bastion.Username = req.Username
 	bastion.Password = req.Password
 	bastion.PkeyPath = req.PkeyPath
 	bastion.PkeyPassphrase = req.PkeyPassphrase
-
-	if req.Name != "" {
-		bastion.Name = req.Name
-	} else {
-		bastion.Name = fmt.Sprintf("%s:%d", bastion.Host, bastion.Port)
-	}
 
 	// Persist updates
 	if err := s.db.Save(bastion).Error; err != nil {
