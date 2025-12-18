@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: auto-release-main
@@ -119,19 +120,14 @@ jobs:
         shell: bash
         env:
           NEW_TAG: ${{ steps.semver.outputs.new_tag }}
-          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
-          if [ -z "${RELEASE_TOKEN:-}" ]; then
-            echo "Missing required secret RELEASE_TOKEN (fine-grained PAT with Contents: Read/Write)."
-            exit 1
-          fi
 
           # GitHub may suppress workflows triggered by pushes originating from other workflows (even for tags).
           # Dispatch Release workflow explicitly so a GitHub Release is always created for NEW_TAG.
           curl -fsSL -X POST \
-            -H "Authorization: Bearer ${RELEASE_TOKEN}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/dispatches" \
             -d "{\"ref\":\"main\",\"inputs\":{\"tag\":\"${NEW_TAG}\"}}"
