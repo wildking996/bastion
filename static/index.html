@@ -341,6 +341,31 @@
                   />
                 </el-select>
               </el-form-item>
+
+              <el-form-item :label="t.ipAllowlist">
+                <el-select
+                  v-model="mappingForm.allow_cidrs"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  :placeholder="t.cidrHint"
+                  style="width: 100%"
+                />
+              </el-form-item>
+
+              <el-form-item :label="t.ipDenylist">
+                <el-select
+                  v-model="mappingForm.deny_cidrs"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  :placeholder="t.cidrHint"
+                  style="width: 100%"
+                />
+              </el-form-item>
+
               <el-form-item :label="t.autoStart">
                 <el-switch v-model="mappingForm.auto_start"></el-switch>
               </el-form-item>
@@ -663,6 +688,8 @@
             remote_host: "10.0.0.1",
             remote_port: 22,
             chain: [],
+            allow_cidrs: [],
+            deny_cidrs: [],
             auto_start: false,
           };
           const mappingForm = ref({ ...defaultMapping });

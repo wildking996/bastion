@@ -49,6 +49,26 @@ type BaseSession struct {
 	maxConnections int32                        // Concurrency limit
 	httpParsers    map[string]*HTTPStreamParser // connID:direction -> parser
 	parserMu       sync.Mutex
+	ipACL          *IPAccessControl
+}
+
+func (s *BaseSession) shouldAcceptClient(conn net.Conn) bool {
+	if s.ipACL == nil {
+		return true
+	}
+	if conn == nil {
+		return false
+	}
+	if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return s.ipACL.Allows(tcpAddr.IP)
+	}
+
+	remote := conn.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(remote)
+	if err != nil {
+		return s.ipACL.Allows(net.ParseIP(remote))
+	}
+	return s.ipACL.Allows(net.ParseIP(host))
 }
 
 // TunnelSession TCP tunnel session
@@ -63,6 +83,7 @@ type Socks5Session struct {
 
 // NewTunnelSession creates a TCP tunnel session
 func NewTunnelSession(mapping *models.Mapping, bastions []models.Bastion) *TunnelSession {
+	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
 	return &TunnelSession{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -70,12 +91,14 @@ func NewTunnelSession(mapping *models.Mapping, bastions []models.Bastion) *Tunne
 			stopChan:       make(chan struct{}),
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
+			ipACL:          ipACL,
 		},
 	}
 }
 
 // NewSocks5Session creates a SOCKS5 session
 func NewSocks5Session(mapping *models.Mapping, bastions []models.Bastion) *Socks5Session {
+	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
 	return &Socks5Session{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -83,6 +106,7 @@ func NewSocks5Session(mapping *models.Mapping, bastions []models.Bastion) *Socks
 			stopChan:       make(chan struct{}),
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
+			ipACL:          ipACL,
 		},
 	}
 }
@@ -143,6 +167,14 @@ func (s *TunnelSession) acceptLoop() {
 			}
 		}
 
+		if !s.shouldAcceptClient(conn) {
+			if config.Settings.LogLevel == "DEBUG" {
+				log.Printf("[TCP] Rejected client %s by IP ACL", conn.RemoteAddr().String())
+			}
+			conn.Close()
+			continue
+		}
+
 		// Enforce connection limit
 		if atomic.LoadInt32(&s.activeConns) >= s.maxConnections {
 			log.Printf("Connection limit reached (%d), rejecting new connection", s.maxConnections)
@@ -185,6 +217,14 @@ func (s *Socks5Session) acceptLoop() {
 				log.Printf("Accept error: %v", err)
 				continue
 			}
+		}
+
+		if !s.shouldAcceptClient(conn) {
+			if config.Settings.LogLevel == "DEBUG" {
+				log.Printf("[SOCKS5] Rejected client %s by IP ACL", conn.RemoteAddr().String())
+			}
+			conn.Close()
+			continue
 		}
 
 		// Enforce connection limit

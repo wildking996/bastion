@@ -92,11 +92,12 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 - **复杂度**: 中
 
 #### 7. IP 白名单/黑名单 (Access Control)
+- **状态**: ✅ 已实现（按 Mapping 粒度；accept 阶段拦截）
 - **描述**: 基于 IP 的访问控制
 - **实现方式**:
-  - 配置文件/数据库存储规则
-  - 支持 CIDR 格式
-  - 在 accept 阶段检查
+  - 数据库存储规则（Mapping 字段：`allow_cidrs` / `deny_cidrs`）
+  - 支持 CIDR 或单 IP
+  - 在 accept 阶段检查（deny 优先；allow 非空则仅允许匹配）
 - **影响**: 安全性增强 ⭐⭐⭐⭐
 - **复杂度**: 低
 

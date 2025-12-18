@@ -54,6 +54,8 @@ func (s *MappingService) List() ([]models.MappingRead, error) {
 			RemoteHost: m.RemoteHost,
 			RemotePort: m.RemotePort,
 			Chain:      m.GetChain(),
+			AllowCIDRs: m.GetAllowCIDRs(),
+			DenyCIDRs:  m.GetDenyCIDRs(),
 			Type:       m.Type,
 			AutoStart:  m.AutoStart,
 			Running:    runningIDs[m.ID],
@@ -146,6 +148,12 @@ func (s *MappingService) Create(req models.MappingCreate) (*models.Mapping, erro
 		mapping.RemotePort = 0
 	}
 	mapping.SetChain(req.Chain)
+	mapping.SetAllowCIDRs(req.AllowCIDRs)
+	mapping.SetDenyCIDRs(req.DenyCIDRs)
+
+	if _, err := core.NewIPAccessControl(req.AllowCIDRs, req.DenyCIDRs); err != nil {
+		return nil, err
+	}
 
 	// Persist to database
 	if err := s.db.Create(&mapping).Error; err != nil {
@@ -207,6 +215,12 @@ func (s *MappingService) Update(id string, req models.MappingCreate) (*models.Ma
 	// Allowed updates
 	mapping.AutoStart = req.AutoStart
 	mapping.SetChain(req.Chain)
+	mapping.SetAllowCIDRs(req.AllowCIDRs)
+	mapping.SetDenyCIDRs(req.DenyCIDRs)
+
+	if _, err := core.NewIPAccessControl(req.AllowCIDRs, req.DenyCIDRs); err != nil {
+		return nil, err
+	}
 
 	if err := s.db.Save(mapping).Error; err != nil {
 		return nil, fmt.Errorf("failed to update mapping: %w", err)

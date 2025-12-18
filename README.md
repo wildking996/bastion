@@ -106,6 +106,7 @@ Key flags (see `./bastion --help` for full list):
 
 - Bastions: `GET /api/bastions`, `POST /api/bastions`, `PUT /api/bastions/:id`, `DELETE /api/bastions/:id`
 - Mappings: `GET /api/mappings`, `POST /api/mappings` (create only), `PUT /api/mappings/:id` (update when stopped), `DELETE /api/mappings/:id`, `POST /api/mappings/:id/start`, `POST /api/mappings/:id/stop`
+  - Optional mapping access control: `allow_cidrs` / `deny_cidrs` (CIDR or single IP; deny wins; allow non-empty means allow-only)
 - Statistics: `GET /api/stats`
 - HTTP audit logs: `GET /api/http-logs` (supports `q/regex/method/host/status/since/until`), `GET /api/http-logs/:id`, `DELETE /api/http-logs`
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
