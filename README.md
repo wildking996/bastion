@@ -14,6 +14,7 @@ Bastion is a secure SSH bastion host with local/dynamic forwarding, HTTP auditin
 - Dynamic port forwarding (SOCKS5) and local port forwarding
 - HTTP traffic auditing with in-memory logs
 - HTTP forward proxy supports WebSocket Upgrade (frames are tunneled; audit covers the initial HTTP handshake only)
+- Real-time traffic chart in the Web UI (polls `/api/stats`)
 - Web-based management interface served from `/web`
 - CLI client mode to control a running server (`--cli --server <url>`)
 - Multi-platform builds (Windows, Linux, macOS; GUI and console variants on Windows)

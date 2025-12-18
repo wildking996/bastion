@@ -134,11 +134,12 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 - **复杂度**: 中
 
 #### 11. 实时流量图表 (Traffic Dashboard)
+- **状态**: ✅ 已实现（基础版：轮询 `/api/stats` 绘制速率/连接数曲线）
 - **描述**: Web UI 实时显示流量统计
 - **实现方式**:
-  - WebSocket 推送指标
-  - ECharts/Chart.js 可视化
-  - 速率、连接数、错误率图表
+  - 轮询 `/api/stats` 计算速率（delta bytes / delta time）
+  - ECharts 可视化
+  - 速率与连接数图表（保留最近 N 个点）
 - **影响**: 可视化监控 ⭐⭐⭐
 - **复杂度**: 中
 
