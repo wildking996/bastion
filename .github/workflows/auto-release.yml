@@ -1,6 +1,7 @@
 name: Auto Release (Semantic Version)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -29,22 +30,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          latest_tag="$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null || true)"
+          latest_tag="$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || true)"
           if [ -z "$latest_tag" ]; then
             latest_tag="v0.0.0"
           fi
 
-          subjects="$(git log --no-merges --format=%s "${latest_tag}..HEAD" || true)"
-          bodies="$(git log --no-merges --format=%b "${latest_tag}..HEAD" || true)"
+          messages="$(git log --format=%B "${latest_tag}..HEAD" || true)"
 
           bump="none"
-          if echo "$subjects" | grep -Eq '^[a-zA-Z]+(\([^)]+\))?!: '; then
+          if printf '%s\n' "$messages" | grep -Eq '^[a-zA-Z]+(\([^)]+\))?!: '; then
             bump="major"
-          elif echo "$bodies" | grep -Eq '(^|[[:space:]])BREAKING CHANGE([[:space:]]|:|$)'; then
+          elif printf '%s\n' "$messages" | grep -Eq '(^|[[:space:]])BREAKING CHANGE([[:space:]]|:|$)'; then
             bump="major"
-          elif echo "$subjects" | grep -Eq '^feat(\([^)]+\))?: '; then
+          elif printf '%s\n' "$messages" | grep -Eq '^feat(\([^)]+\))?: '; then
             bump="minor"
-          elif echo "$subjects" | grep -Eq '^(fix|perf)(\([^)]+\))?: '; then
+          elif printf '%s\n' "$messages" | grep -Eq '^(fix|perf)(\([^)]+\))?: '; then
             bump="patch"
           fi
 
@@ -103,4 +103,3 @@ jobs:
 
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
           git push origin "$NEW_TAG"
-
