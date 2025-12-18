@@ -110,6 +110,7 @@ Key flags (see `./bastion --help` for full list):
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
 - Shutdown (confirmation code): `POST /api/shutdown/generate-code`, `POST /api/shutdown/verify`
 - Health/metrics: `GET /api/health`, `GET /api/metrics`
+- Prometheus: `GET /metrics`
 
 ## Project Structure
 
@@ -227,6 +228,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - 错误日志：`GET /api/error-logs`，`DELETE /api/error-logs`
 - 关闭：`POST /api/shutdown/generate-code`，`POST /api/shutdown/verify`
 - 健康/指标：`GET /api/health`，`GET /api/metrics`
+- Prometheus：`GET /metrics`
 
 ### 结构
 
