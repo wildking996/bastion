@@ -13,6 +13,7 @@ Bastion is a secure SSH bastion host with local/dynamic forwarding, HTTP auditin
 - SSH connection pooling and session management
 - Dynamic port forwarding (SOCKS5) and local port forwarding
 - HTTP traffic auditing with in-memory logs
+- HTTP forward proxy supports WebSocket Upgrade (frames are tunneled; audit covers the initial HTTP handshake only)
 - Web-based management interface served from `/web`
 - CLI client mode to control a running server (`--cli --server <url>`)
 - Multi-platform builds (Windows, Linux, macOS; GUI and console variants on Windows)
@@ -166,6 +167,7 @@ Bastion 是一个安全的 SSH 跳板机，支持本地/动态转发、HTTP 审�
 - SSH 连接池与会话管理
 - 动态端口转发（SOCKS5）与本地端口转发
 - HTTP 流量审计与内存日志
+- HTTP 正向代理支持 WebSocket Upgrade（升级后按原始 TCP 转发；审计仅覆盖升级前的 HTTP 握手）
 - `/web` 提供的 Web 管理界面
 - CLI 模式远程控制运行中的服务（`--cli --server <url>`）
 - 跨平台构建（Windows/Linux/macOS，Windows 同时提供 GUI 与控制台版本）

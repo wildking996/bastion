@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -175,6 +176,12 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 	req.RequestURI = ""
 	req.Close = true
 
+	isWebSocket := isWebSocketUpgradeRequest(req)
+	if isWebSocket {
+		// WebSocket upgrade requires a long-lived full-duplex connection.
+		req.Close = false
+	}
+
 	trackingWriter := &proxyTrackingWriter{
 		dst:       remoteConn,
 		session:   &s.BaseSession,
@@ -187,8 +194,123 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 		return
 	}
 
+	if isWebSocket {
+		remoteReader := bufio.NewReader(remoteConn)
+		resp, err := http.ReadResponse(remoteReader, req)
+		if err != nil {
+			log.Printf("[HTTP] Failed to read response from %s: %v", remoteAddr, err)
+			return
+		}
+
+		respWriter := &proxyTrackingWriter{
+			dst:       clientConn,
+			session:   &s.BaseSession,
+			direction: "response",
+			connID:    connID,
+		}
+
+		// For WebSocket, we forward the 101 response first, then switch to raw TCP proxying
+		// (no HTTP audit parsing for subsequent WS frames).
+		if err := resp.Write(respWriter); err != nil {
+			log.Printf("[HTTP] Failed to write response to client %s: %v", clientAddr, err)
+			_ = resp.Body.Close()
+			return
+		}
+
+		// Do not close resp.Body for 101 Switching Protocols; it may wrap the underlying connection.
+		if resp.StatusCode != http.StatusSwitchingProtocols {
+			_ = resp.Body.Close()
+			return
+		}
+
+		s.pipeRaw(clientConn, reader, remoteConn, remoteReader, connID)
+		return
+	}
+
 	// Copy response while updating stats and audit logs
 	s.copyData(clientConn, remoteConn, "response", connID)
+}
+
+func isWebSocketUpgradeRequest(req *http.Request) bool {
+	upgrade := strings.ToLower(req.Header.Get("Upgrade"))
+	if upgrade != "websocket" {
+		return false
+	}
+	conn := strings.ToLower(req.Header.Get("Connection"))
+	return strings.Contains(conn, "upgrade")
+}
+
+// pipeRaw proxies bidirectional bytes without feeding the HTTP audit parser.
+// clientReader is the bufio.Reader used for parsing the initial request, which may contain buffered bytes.
+func (s *HTTPProxySession) pipeRaw(clientConn net.Conn, clientReader *bufio.Reader, remoteConn net.Conn, remoteReader *bufio.Reader, connID string) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	once := &sync.Once{}
+	closeConns := func() {
+		_ = clientConn.Close()
+		_ = remoteConn.Close()
+	}
+
+	go func() {
+		defer wg.Done()
+		defer once.Do(closeConns)
+		s.copyRaw(remoteConn, clientReader, "request", connID)
+	}()
+
+	go func() {
+		defer wg.Done()
+		defer once.Do(closeConns)
+		s.copyRaw(clientConn, remoteReader, "response", connID)
+	}()
+
+	wg.Wait()
+}
+
+func (s *HTTPProxySession) copyRaw(dst net.Conn, src io.Reader, direction, connID string) {
+	bufAny := bufferPool.Get()
+	bufPtr, ok := bufAny.(*[]byte)
+	if !ok || bufPtr == nil {
+		buf := make([]byte, config.Settings.ForwardBufferSize)
+		bufPtr = &buf
+	}
+	buf := *bufPtr
+	defer bufferPool.Put(bufPtr)
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in copyRaw [%s]: %v", direction, r)
+		}
+		if tcpConn, ok := dst.(*net.TCPConn); ok {
+			_ = tcpConn.CloseWrite()
+		}
+	}()
+
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			if direction == "request" {
+				atomic.AddInt64(&s.bytesUp, int64(n))
+			} else {
+				atomic.AddInt64(&s.bytesDown, int64(n))
+			}
+
+			written := 0
+			for written < n {
+				w, werr := dst.Write(buf[written:n])
+				if werr != nil {
+					return
+				}
+				written += w
+			}
+		}
+		if err != nil {
+			if err != io.EOF && config.Settings.LogLevel == "DEBUG" {
+				log.Printf("Copy raw error [%s] (%s): %v", direction, connID, err)
+			}
+			return
+		}
+	}
 }
 
 // proxyTrackingWriter updates stats and audit data while writing

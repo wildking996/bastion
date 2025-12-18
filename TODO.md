@@ -69,11 +69,11 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 - **复杂度**: 低
 
 #### 5. WebSocket 支持 (WS Proxy)
+- **状态**: ✅ 已实现（基础版：代理 Upgrade；不解析 WS 帧）
 - **描述**: 代理支持 WebSocket 协议升级
 - **实现方式**:
-  - HTTP 代理支持 UPGRADE 请求
-  - 保持 TCP 隧道但识别 WS 帧
-  - 实时连接状态推送 (Web UI)
+  - HTTP 代理支持 Upgrade: websocket
+  - 升级后切换为原始 TCP 双向转发（不解析 WS 帧，避免影响现有 HTTP 审计解析）
 - **影响**: 现代应用兼容性 ⭐⭐⭐⭐⭐
 - **复杂度**: 中
 
