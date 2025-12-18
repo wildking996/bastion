@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to release (e.g. v1.2.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,6 +17,8 @@ permissions:
 env:
   GO_VERSION: "1.21"
   APP_NAME: bastion
+  TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  TAG_REF: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
 jobs:
   build:
@@ -47,6 +55,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG_REF }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -59,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${TAG_NAME#v}"
           COMMIT_HASH="${GITHUB_SHA::7}"
           BUILD_TIME="$(date -u '+%Y-%m-%d_%H:%M:%S')"
 
@@ -152,6 +162,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ env.TAG_REF }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -171,7 +182,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${TAG_NAME#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Generate Release Notes
@@ -181,7 +192,7 @@ jobs:
           set -euo pipefail
 
           PREV_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
-          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
+          CURRENT_TAG="${TAG_NAME}"
 
           {
             echo "## What's Changed"
