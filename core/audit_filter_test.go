@@ -70,12 +70,31 @@ func TestAuditor_QueryHTTPLogs_FilterAndPagination(t *testing.T) {
 		t.Fatalf("unexpected keyword search result: total=%d len=%d", total, len(logs))
 	}
 
+	// Keyword search should include decompressed response body
+	a.saveHTTPLog(&HTTPLog{
+		Timestamp:       now.Add(-30 * time.Minute),
+		ConnID:          "c4",
+		Method:          "GET",
+		Host:            "example.com",
+		URL:             "/gzip",
+		Protocol:        "HTTP/1.1",
+		StatusCode:      200,
+		Request:         "GET /gzip HTTP/1.1",
+		Response:        "HTTP/1.1 200 OK",
+		ResponseDecoded: "hello from decoded gzip body",
+		IsGzipped:       true,
+	})
+	logs, total = a.QueryHTTPLogs(HTTPLogFilter{Query: "decoded gzip"}, 1, 20)
+	if total != 1 || len(logs) != 1 || logs[0].ConnID != "c4" {
+		t.Fatalf("unexpected decoded-body search result: total=%d len=%d", total, len(logs))
+	}
+
 	// Pagination on all logs (latest first)
 	logs, total = a.QueryHTTPLogs(HTTPLogFilter{}, 1, 2)
-	if total != 3 || len(logs) != 2 {
+	if total != 4 || len(logs) != 2 {
 		t.Fatalf("unexpected pagination result: total=%d len=%d", total, len(logs))
 	}
-	if logs[0].ConnID != "c3" || logs[1].ConnID != "c2" {
+	if logs[0].ConnID != "c4" || logs[1].ConnID != "c3" {
 		t.Fatalf("unexpected ordering: got %q then %q", logs[0].ConnID, logs[1].ConnID)
 	}
 }

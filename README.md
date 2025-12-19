@@ -226,7 +226,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - 跳板机：`GET/POST/PUT/DELETE /api/bastions`
 - 映射：`GET /api/mappings`、`POST /api/mappings`（仅创建）、`PUT /api/mappings/:id`（停止状态可更新）、`DELETE /api/mappings/:id`、`POST /api/mappings/:id/start`、`POST /api/mappings/:id/stop`
 - 统计：`GET /api/stats`
-- HTTP 审计日志：`GET /api/http-logs`，`GET /api/http-logs/:id`，`DELETE /api/http-logs`
+- HTTP 审计日志：`GET /api/http-logs`（支持 `q/regex/method/host/status/since/until`），`GET /api/http-logs/:id`，`DELETE /api/http-logs`
 - 错误日志：`GET /api/error-logs`，`DELETE /api/error-logs`
 - 关闭：`POST /api/shutdown/generate-code`，`POST /api/shutdown/verify`
 - 健康/指标：`GET /api/health`，`GET /api/metrics`
