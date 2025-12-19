@@ -86,7 +86,7 @@ Environment variables (overridden by flags where available):
 - `AUDIT_ENABLED` (default `true`): enable HTTP audit logging.
 - `MAX_SESSION_CONNECTIONS` (default `1000`): max concurrent connections per mapping.
 - `FORWARD_BUFFER_SIZE` (default `32768`): TCP forward buffer size in bytes.
-- `AUDIT_QUEUE_SIZE` (default `1000`): audit queue length.
+- `AUDIT_QUEUE_SIZE` (default `1000`): asynchronous audit queue length; when full, audit messages are dropped to prioritize forwarding performance.
 - `MAX_HTTP_LOGS` (default `1000`): in-memory HTTP log cap.
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES` (default `5`): stale HTTP pair cleanup interval.
 - `HTTP_PAIR_MAX_AGE_MINUTES` (default `10`): max age before pairing is considered stale.
@@ -225,7 +225,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `AUDIT_ENABLED`（默认 `true`）：启用 HTTP 审计日志。
 - `MAX_SESSION_CONNECTIONS`（默认 `1000`）：单映射最大并发连接数。
 - `FORWARD_BUFFER_SIZE`（默认 `32768`）：转发缓冲区大小（字节）。
-- `AUDIT_QUEUE_SIZE`（默认 `1000`）：审计队列长度。
+- `AUDIT_QUEUE_SIZE`（默认 `1000`）：异步审计队列长度；满时将丢弃审计消息以优先保障转发性能。
 - `MAX_HTTP_LOGS`（默认 `1000`）：HTTP 日志内存上限。
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES`（默认 `5`）：清理未配对 HTTP 请求的间隔分钟数。
 - `HTTP_PAIR_MAX_AGE_MINUTES`（默认 `10`）：未配对请求的最大保留分钟数。

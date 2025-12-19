@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,6 +24,18 @@ type Auditor struct {
 	gzipDecodeMu         sync.Mutex
 	gzipDecodedBodyCache map[int]*gzipDecodedBodyCacheEntry
 	gzipCacheLastSweep   time.Time
+
+	auditQueueMu      sync.Mutex
+	auditQueue        chan auditEvent
+	auditQueueStop    chan struct{}
+	auditQueueWg      sync.WaitGroup
+	auditDroppedTotal uint64
+}
+
+type auditEvent struct {
+	ctx    AuditContext
+	connID string
+	msg    *HTTPMessage
 }
 
 // HTTPLog represents an HTTP request/response log
@@ -84,6 +97,7 @@ func (a *Auditor) Start() {
 	a.running = true
 	a.stateMu.Unlock()
 
+	a.startAuditQueue()
 	go a.cleanupStalePairs()
 }
 
@@ -96,6 +110,8 @@ func (a *Auditor) Stop() {
 	}
 	a.running = false
 	a.stateMu.Unlock()
+
+	a.stopAuditQueue()
 }
 
 // isRunning safely reads running state
@@ -105,17 +121,123 @@ func (a *Auditor) isRunning() bool {
 	return a.running
 }
 
-// LogHTTPMessage records a full HTTP message and attaches audit context.
-func (a *Auditor) LogHTTPMessage(ctx AuditContext, connID string, msg *HTTPMessage) {
+// EnqueueHTTPMessage enqueues a full HTTP message for asynchronous audit processing.
+//
+// This method is non-blocking by design: when the audit queue is full, the message is dropped and false is returned
+// to prioritize forwarding performance.
+func (a *Auditor) EnqueueHTTPMessage(ctx AuditContext, connID string, msg *HTTPMessage) bool {
 	if !config.Settings.AuditEnabled {
+		return false
+	}
+	if msg == nil {
+		return false
+	}
+	if !a.isRunning() {
+		return false
+	}
+
+	q := a.getAuditQueue()
+	if q == nil {
+		atomic.AddUint64(&a.auditDroppedTotal, 1)
+		return false
+	}
+
+	ev := auditEvent{ctx: ctx, connID: connID, msg: msg}
+	select {
+	case q <- ev:
+		return true
+	default:
+		atomic.AddUint64(&a.auditDroppedTotal, 1)
+		return false
+	}
+}
+
+func (a *Auditor) getAuditQueue() chan auditEvent {
+	a.auditQueueMu.Lock()
+	defer a.auditQueueMu.Unlock()
+	return a.auditQueue
+}
+
+func (a *Auditor) startAuditQueue() {
+	a.auditQueueMu.Lock()
+	defer a.auditQueueMu.Unlock()
+
+	if a.auditQueue != nil {
 		return
 	}
 
-	if msg.Type == HTTPRequest {
-		a.pairMatcher.AddRequest(ctx, connID, msg)
-	} else {
-		a.pairMatcher.MatchResponse(connID, msg)
+	capacity := config.Settings.AuditQueueSize
+	if capacity <= 0 {
+		capacity = 1
 	}
+
+	a.auditQueue = make(chan auditEvent, capacity)
+	a.auditQueueStop = make(chan struct{})
+	a.auditQueueWg.Add(1)
+	go func() {
+		defer a.auditQueueWg.Done()
+		a.processAuditQueue(a.auditQueueStop, a.auditQueue)
+	}()
+}
+
+func (a *Auditor) stopAuditQueue() {
+	a.auditQueueMu.Lock()
+	stop := a.auditQueueStop
+	a.auditQueueStop = nil
+	a.auditQueueMu.Unlock()
+
+	if stop != nil {
+		close(stop)
+	}
+
+	a.auditQueueWg.Wait()
+
+	a.auditQueueMu.Lock()
+	a.auditQueue = nil
+	a.auditQueueMu.Unlock()
+}
+
+func (a *Auditor) processAuditQueue(stop <-chan struct{}, q <-chan auditEvent) {
+	for {
+		select {
+		case <-stop:
+			return
+		case ev := <-q:
+			if ev.msg == nil {
+				continue
+			}
+			if ev.msg.Type == HTTPRequest {
+				a.pairMatcher.AddRequest(ev.ctx, ev.connID, ev.msg)
+			} else {
+				a.pairMatcher.MatchResponse(ev.connID, ev.msg)
+			}
+		}
+	}
+}
+
+// AuditQueueLen returns the current audit queue length.
+func (a *Auditor) AuditQueueLen() int {
+	a.auditQueueMu.Lock()
+	defer a.auditQueueMu.Unlock()
+	if a.auditQueue == nil {
+		return 0
+	}
+	return len(a.auditQueue)
+}
+
+// AuditQueueCap returns the configured audit queue capacity.
+func (a *Auditor) AuditQueueCap() int {
+	a.auditQueueMu.Lock()
+	defer a.auditQueueMu.Unlock()
+	if a.auditQueue == nil {
+		return 0
+	}
+	return cap(a.auditQueue)
+}
+
+// AuditDroppedTotal returns the total number of dropped audit messages.
+func (a *Auditor) AuditDroppedTotal() uint64 {
+	return atomic.LoadUint64(&a.auditDroppedTotal)
 }
 
 // saveHTTPLog stores an HTTP log entry
