@@ -18,6 +18,10 @@ type Auditor struct {
 	logIDCounter int
 	pairMatcher  *HTTPPairMatcher
 	stateMu      sync.RWMutex
+
+	gzipDecodeMu         sync.Mutex
+	gzipDecodedBodyCache map[int]*gzipDecodedBodyCacheEntry
+	gzipCacheLastSweep   time.Time
 }
 
 // HTTPLog represents an HTTP request/response log
@@ -43,9 +47,10 @@ var AuditorInstance *Auditor
 
 func init() {
 	AuditorInstance = &Auditor{
-		httpLogs:    make([]*HTTPLog, 0, config.Settings.MaxHTTPLogs),
-		httpLogsMap: make(map[int]*HTTPLog),
-		maxLogs:     config.Settings.MaxHTTPLogs,
+		httpLogs:             make([]*HTTPLog, 0, config.Settings.MaxHTTPLogs),
+		httpLogsMap:          make(map[int]*HTTPLog),
+		maxLogs:              config.Settings.MaxHTTPLogs,
+		gzipDecodedBodyCache: make(map[int]*gzipDecodedBodyCacheEntry),
 	}
 
 	// Create matcher
@@ -112,6 +117,10 @@ func (a *Auditor) saveHTTPLog(httpLog *HTTPLog) {
 		oldLog := a.httpLogs[0]
 		delete(a.httpLogsMap, oldLog.ID)
 		a.httpLogs = a.httpLogs[1:]
+
+		a.gzipDecodeMu.Lock()
+		delete(a.gzipDecodedBodyCache, oldLog.ID)
+		a.gzipDecodeMu.Unlock()
 	}
 
 	a.logIDCounter++
@@ -142,6 +151,11 @@ func (a *Auditor) ClearHTTPLogs() {
 	a.httpLogs = make([]*HTTPLog, 0, a.maxLogs)
 	a.httpLogsMap = make(map[int]*HTTPLog)
 	a.logIDCounter = 0
+
+	a.gzipDecodeMu.Lock()
+	a.gzipDecodedBodyCache = make(map[int]*gzipDecodedBodyCacheEntry)
+	a.gzipCacheLastSweep = time.Time{}
+	a.gzipDecodeMu.Unlock()
 }
 
 type HTTPLogFilter struct {

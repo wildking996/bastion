@@ -361,12 +361,50 @@ func GetHTTPLogs(c *gin.Context) {
 	})
 }
 
-// GetHTTPLogDetail retrieves details for a single HTTP log entry
+// GetHTTPLogDetail retrieves details for a single HTTP log entry.
+//
+// Optional query params:
+// - part=request_header|request_body|response_header|response_body
+// - decode=gzip (only for part=response_body)
 func GetHTTPLogDetail(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid ID"})
+		return
+	}
+
+	if partStr := strings.TrimSpace(c.Query("part")); partStr != "" {
+		part := core.HTTPLogPart(partStr)
+
+		opts := core.HTTPLogPartOptions{}
+		if decodeStr := strings.TrimSpace(c.Query("decode")); decodeStr != "" {
+			if !strings.EqualFold(decodeStr, "gzip") {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid decode value"})
+				return
+			}
+			opts.DecodeGzip = true
+		}
+
+		result, err := service.GlobalServices.Audit.GetHTTPLogPart(id, part, opts)
+		if err != nil {
+			if errors.Is(err, core.ErrHTTPLogNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"detail": "Log not found"})
+				return
+			}
+			if errors.Is(err, core.ErrInvalidHTTPLogPart) || errors.Is(err, core.ErrNotGzippedResponse) {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+				return
+			}
+			if errors.Is(err, core.ErrGzipDecodeNotAllowed) {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "decode is only supported for part=response_body"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, result)
 		return
 	}
 

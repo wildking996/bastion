@@ -29,6 +29,11 @@ func (s *AuditService) GetHTTPLogByID(id int) *core.HTTPLog {
 	return s.auditor.GetHTTPLogByID(id)
 }
 
+// GetHTTPLogPart retrieves a single HTTP log part (header/body) with optional on-demand gzip decoding.
+func (s *AuditService) GetHTTPLogPart(id int, part core.HTTPLogPart, opts core.HTTPLogPartOptions) (*core.HTTPLogPartResult, error) {
+	return s.auditor.GetHTTPLogPart(id, part, opts)
+}
+
 // ClearHTTPLogs removes all HTTP logs
 func (s *AuditService) ClearHTTPLogs() {
 	s.auditor.ClearHTTPLogs()

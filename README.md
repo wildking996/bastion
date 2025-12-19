@@ -90,6 +90,9 @@ Environment variables (overridden by flags where available):
 - `MAX_HTTP_LOGS` (default `1000`): in-memory HTTP log cap.
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES` (default `5`): stale HTTP pair cleanup interval.
 - `HTTP_PAIR_MAX_AGE_MINUTES` (default `10`): max age before pairing is considered stale.
+- `HTTP_GZIP_DECODE_MAX_BYTES` (default `1048576`): max decompressed bytes for on-demand gzip decode preview.
+- `HTTP_GZIP_DECODE_TIMEOUT_MS` (default `500`): timeout for on-demand gzip decode preview.
+- `HTTP_GZIP_DECODE_CACHE_SECONDS` (default `60`): sliding cache TTL for decoded previews (0 disables cache).
 - `GOROUTINE_MONITOR_INTERVAL_SECONDS` (default `30`): goroutine monitor interval.
 - `GOROUTINE_WARN_THRESHOLD` (default `1000`): goroutine warning threshold.
 - `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS` (default `30`): SOCKS5 handshake timeout.
@@ -119,6 +122,8 @@ Key flags (see `./bastion --help` for full list):
   - Optional mapping access control: `allow_cidrs` / `deny_cidrs` (CIDR or single IP; deny wins; allow non-empty means allow-only)
 - Statistics: `GET /api/stats`
 - HTTP audit logs: `GET /api/http-logs` (supports `q/regex/method/host/status/since/until`), `GET /api/http-logs/:id`, `DELETE /api/http-logs`
+  - Log detail parts: `GET /api/http-logs/:id?part=request_header|request_body|response_header|response_body`
+  - On-demand gzip decode: `GET /api/http-logs/:id?part=response_body&decode=gzip`
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
 - Shutdown (confirmation code): `POST /api/shutdown/generate-code`, `POST /api/shutdown/verify`
 - Health/metrics: `GET /api/health`, `GET /api/metrics`
@@ -219,6 +224,9 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `MAX_HTTP_LOGS`（默认 `1000`）：HTTP 日志内存上限。
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES`（默认 `5`）：清理未配对 HTTP 请求的间隔分钟数。
 - `HTTP_PAIR_MAX_AGE_MINUTES`（默认 `10`）：未配对请求的最大保留分钟数。
+- `HTTP_GZIP_DECODE_MAX_BYTES`（默认 `1048576`）：按需解压 gzip 的最大解压后字节数（预览）。
+- `HTTP_GZIP_DECODE_TIMEOUT_MS`（默认 `500`）：按需解压 gzip 的超时时间（毫秒）。
+- `HTTP_GZIP_DECODE_CACHE_SECONDS`（默认 `60`）：解压预览的短缓存 TTL（滑动过期；0 表示禁用缓存）。
 - `GOROUTINE_MONITOR_INTERVAL_SECONDS`（默认 `30`）：goroutine 监控间隔。
 - `GOROUTINE_WARN_THRESHOLD`（默认 `1000`）：goroutine 警告阈值。
 - `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS`（默认 `30`）：SOCKS5 握手超时。
@@ -247,6 +255,8 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - 映射：`GET /api/mappings`、`POST /api/mappings`（仅创建）、`PUT /api/mappings/:id`（停止状态可更新）、`DELETE /api/mappings/:id`、`POST /api/mappings/:id/start`、`POST /api/mappings/:id/stop`
 - 统计：`GET /api/stats`
 - HTTP 审计日志：`GET /api/http-logs`（支持 `q/regex/method/host/status/since/until`），`GET /api/http-logs/:id`，`DELETE /api/http-logs`
+  - 详情分片：`GET /api/http-logs/:id?part=request_header|request_body|response_header|response_body`
+  - 按需 gzip 解压：`GET /api/http-logs/:id?part=response_body&decode=gzip`
 - 错误日志：`GET /api/error-logs`，`DELETE /api/error-logs`
 - 关闭：`POST /api/shutdown/generate-code`，`POST /api/shutdown/verify`
 - 健康/指标：`GET /api/health`，`GET /api/metrics`
