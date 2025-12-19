@@ -497,7 +497,8 @@ func promLabelEscape(s string) string {
 	return s
 }
 
-// GetPrometheusMetrics exposes Prometheus exposition format metrics at /metrics.
+// GetPrometheusMetrics writes Prometheus-formatted metrics to the HTTP response for scraping.
+// It collects runtime and application metrics — including build info, SQLite connectivity and error counters, session and connection counts, traffic byte totals, HTTP log count, goroutine and memory statistics, and GC runs — and returns them using the Prometheus exposition content type.
 func GetPrometheusMetrics(c *gin.Context) {
 	s := collectMetricsSnapshot()
 
@@ -512,6 +513,22 @@ func GetPrometheusMetrics(c *gin.Context) {
 		promLabelEscape(version.CommitHash),
 		promLabelEscape(version.BuildTime),
 	)
+
+	buf.WriteString("# HELP bastion_sqlite_up SQLite connectivity (1=up, 0=down).\n")
+	buf.WriteString("# TYPE bastion_sqlite_up gauge\n")
+	if database.SQLiteUp(c.Request.Context()) {
+		buf.WriteString("bastion_sqlite_up 1\n")
+	} else {
+		buf.WriteString("bastion_sqlite_up 0\n")
+	}
+
+	buf.WriteString("# HELP bastion_sqlite_busy_errors_total Total SQLite busy errors observed.\n")
+	buf.WriteString("# TYPE bastion_sqlite_busy_errors_total counter\n")
+	fmt.Fprintf(&buf, "bastion_sqlite_busy_errors_total %d\n", database.SQLiteBusyErrorsTotal())
+
+	buf.WriteString("# HELP bastion_sqlite_locked_errors_total Total SQLite locked errors observed.\n")
+	buf.WriteString("# TYPE bastion_sqlite_locked_errors_total counter\n")
+	fmt.Fprintf(&buf, "bastion_sqlite_locked_errors_total %d\n", database.SQLiteLockedErrorsTotal())
 
 	buf.WriteString("# HELP bastion_sessions_total Number of configured/running sessions.\n")
 	buf.WriteString("# TYPE bastion_sessions_total gauge\n")
