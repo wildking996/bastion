@@ -518,6 +518,12 @@ func GetMetrics(c *gin.Context) {
 
 	metrics := gin.H{
 		"timestamp": s.timestamp,
+		"ssh_pool": gin.H{
+			"connections":        core.Pool.SSHPoolConnections(),
+			"active_conns":       core.Pool.SSHPoolActiveConns(),
+			"keepalive_failures": core.Pool.SSHKeepaliveFailuresTotal(),
+			"idle_closed_total":  core.Pool.SSHIdleClosedTotal(),
+		},
 		"sessions": gin.H{
 			"total":       s.sessionCount,
 			"connections": s.totalConnections,
@@ -589,6 +595,22 @@ func GetPrometheusMetrics(c *gin.Context) {
 	buf.WriteString("# HELP bastion_sessions_connections Active connections across sessions.\n")
 	buf.WriteString("# TYPE bastion_sessions_connections gauge\n")
 	fmt.Fprintf(&buf, "bastion_sessions_connections %d\n", s.totalConnections)
+
+	buf.WriteString("# HELP bastion_ssh_pool_connections Number of pooled SSH client connections.\n")
+	buf.WriteString("# TYPE bastion_ssh_pool_connections gauge\n")
+	fmt.Fprintf(&buf, "bastion_ssh_pool_connections %d\n", core.Pool.SSHPoolConnections())
+
+	buf.WriteString("# HELP bastion_ssh_pool_active_conns Active tunneled connections opened via the SSH pool.\n")
+	buf.WriteString("# TYPE bastion_ssh_pool_active_conns gauge\n")
+	fmt.Fprintf(&buf, "bastion_ssh_pool_active_conns %d\n", core.Pool.SSHPoolActiveConns())
+
+	buf.WriteString("# HELP bastion_ssh_pool_keepalive_failures_total Total pooled SSH keepalive probe failures.\n")
+	buf.WriteString("# TYPE bastion_ssh_pool_keepalive_failures_total counter\n")
+	fmt.Fprintf(&buf, "bastion_ssh_pool_keepalive_failures_total %d\n", core.Pool.SSHKeepaliveFailuresTotal())
+
+	buf.WriteString("# HELP bastion_ssh_pool_idle_closed_total Total pooled SSH connections closed due to idleness or eviction.\n")
+	buf.WriteString("# TYPE bastion_ssh_pool_idle_closed_total counter\n")
+	fmt.Fprintf(&buf, "bastion_ssh_pool_idle_closed_total %d\n", core.Pool.SSHIdleClosedTotal())
 
 	buf.WriteString("# HELP bastion_traffic_bytes_up_total Total uploaded bytes.\n")
 	buf.WriteString("# TYPE bastion_traffic_bytes_up_total counter\n")

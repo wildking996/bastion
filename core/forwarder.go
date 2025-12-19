@@ -583,13 +583,7 @@ func (s *BaseSession) dialWithRetry(remoteAddr, clientAddr, bastionChain string)
 			time.Sleep(retryDelay)
 		}
 
-		sshClient, err := Pool.GetConnection(s.Bastions)
-		if err != nil {
-			lastErr = fmt.Errorf("SSH connection failed: %w", err)
-			continue
-		}
-
-		remoteConn, err := sshClient.Dial("tcp", remoteAddr)
+		remoteConn, err := Pool.Dial(s.Bastions, "tcp", remoteAddr)
 		if err != nil {
 			lastErr = fmt.Errorf("dial failed: %w", err)
 			continue

@@ -101,6 +101,10 @@ Environment variables (overridden by flags where available):
 - `SSH_KEEPALIVE_INTERVAL` (default `30`): SSH keepalive interval.
 - `SSH_CONNECT_MAX_RETRIES` (default `3`): retries per SSH hop.
 - `SSH_CONNECT_RETRY_DELAY_SECONDS` (default `2`): delay between SSH retries.
+- `SSH_POOL_MAX_CONNS` (default `64`): maximum pooled SSH connections (per bastion chain).
+- `SSH_POOL_IDLE_TIMEOUT_SECONDS` (default `900`): close pooled SSH connections idle for this duration.
+- `SSH_POOL_KEEPALIVE_INTERVAL_SECONDS` (default `30`): interval for pooled SSH keepalive probes (0 disables).
+- `SSH_POOL_KEEPALIVE_TIMEOUT_MS` (default `500`): timeout for a single pooled SSH keepalive probe.
 - CLI-only: `CLI_MODE` (`false`) to force CLI client mode; use `--server` flag for target URL.
 
 Key flags (see `./bastion --help` for full list):
@@ -113,6 +117,7 @@ Key flags (see `./bastion --help` for full list):
 - `--server` target server URL for CLI mode.
 - `--max-session-connections` per-mapping connection cap.
 - `--max-http-logs` in-memory HTTP log cap.
+- `--ssh-pool-max-conns`, `--ssh-pool-idle-timeout-seconds`, `--ssh-pool-keepalive-interval-seconds`, `--ssh-pool-keepalive-timeout-ms` SSH pool lifecycle settings.
 - `--version` show build/version info and exit.
 
 ## API Endpoints
@@ -235,6 +240,10 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `SSH_KEEPALIVE_INTERVAL`（默认 `30`）：SSH keepalive 间隔。
 - `SSH_CONNECT_MAX_RETRIES`（默认 `3`）：SSH 每跳重试次数。
 - `SSH_CONNECT_RETRY_DELAY_SECONDS`（默认 `2`）：SSH 重试间隔秒数。
+- `SSH_POOL_MAX_CONNS`（默认 `64`）：SSH 连接池最大连接数（按 bastion chain 计）。
+- `SSH_POOL_IDLE_TIMEOUT_SECONDS`（默认 `900`）：空闲超过该秒数的池连接将被主动关闭。
+- `SSH_POOL_KEEPALIVE_INTERVAL_SECONDS`（默认 `30`）：池连接 keepalive 探测间隔（0 表示禁用）。
+- `SSH_POOL_KEEPALIVE_TIMEOUT_MS`（默认 `500`）：单次池连接 keepalive 探测超时（毫秒）。
 - CLI：`CLI_MODE`（默认 `false`）强制使用 CLI 客户端模式，目标地址使用 `--server`。
 
 常用标志：
@@ -247,6 +256,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `--server`：CLI 模式下的目标服务器地址。
 - `--max-session-connections`：单映射最大连接数。
 - `--max-http-logs`：HTTP 日志内存上限。
+- `--ssh-pool-max-conns` / `--ssh-pool-idle-timeout-seconds` / `--ssh-pool-keepalive-interval-seconds` / `--ssh-pool-keepalive-timeout-ms`：SSH 连接池生命周期设置。
 - `--version`：输出版本/构建信息后退出。
 
 ### API
