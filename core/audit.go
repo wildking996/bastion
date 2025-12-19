@@ -213,16 +213,16 @@ func httpLogMatchesFilter(httpLog *HTTPLog, filter HTTPLogFilter) bool {
 		return true
 	}
 
-		if filter.QueryRegex != nil {
-			return filter.QueryRegex.MatchString(httpLog.Method) ||
-				filter.QueryRegex.MatchString(httpLog.Host) ||
-				filter.QueryRegex.MatchString(httpLog.URL) ||
-				filter.QueryRegex.MatchString(httpLog.Protocol) ||
-				filter.QueryRegex.MatchString(httpLog.ConnID) ||
-				filter.QueryRegex.MatchString(httpLog.Request) ||
-				filter.QueryRegex.MatchString(httpLog.Response) ||
-				filter.QueryRegex.MatchString(httpLog.ResponseDecoded)
-		}
+	if filter.QueryRegex != nil {
+		return filter.QueryRegex.MatchString(httpLog.Method) ||
+			filter.QueryRegex.MatchString(httpLog.Host) ||
+			filter.QueryRegex.MatchString(httpLog.URL) ||
+			filter.QueryRegex.MatchString(httpLog.Protocol) ||
+			filter.QueryRegex.MatchString(httpLog.ConnID) ||
+			filter.QueryRegex.MatchString(httpLog.Request) ||
+			filter.QueryRegex.MatchString(httpLog.Response) ||
+			filter.QueryRegex.MatchString(httpLog.ResponseDecoded)
+	}
 
 	q := strings.ToLower(filter.Query)
 	return strings.Contains(strings.ToLower(httpLog.Method), q) ||
