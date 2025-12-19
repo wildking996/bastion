@@ -361,7 +361,11 @@ func GetHTTPLogs(c *gin.Context) {
 	})
 }
 
-// GetHTTPLogDetail retrieves details for a single HTTP log entry
+// GetHTTPLogDetail retrieves details for a single HTTP log entry.
+//
+// Optional query params:
+// - part=request_header|request_body|response_header|response_body
+// - decode=gzip (only for part=response_body)
 func GetHTTPLogDetail(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -379,10 +383,6 @@ func GetHTTPLogDetail(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid decode value"})
 				return
 			}
-			if part != core.HTTPLogPartResponseBody {
-				c.JSON(http.StatusBadRequest, gin.H{"detail": "decode is only supported for part=response_body"})
-				return
-			}
 			opts.DecodeGzip = true
 		}
 
@@ -394,6 +394,10 @@ func GetHTTPLogDetail(c *gin.Context) {
 			}
 			if errors.Is(err, core.ErrInvalidHTTPLogPart) || errors.Is(err, core.ErrNotGzippedResponse) {
 				c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+				return
+			}
+			if errors.Is(err, core.ErrGzipDecodeNotAllowed) {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "decode is only supported for part=response_body"})
 				return
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})

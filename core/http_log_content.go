@@ -12,19 +12,27 @@ import (
 	"bastion/config"
 )
 
+// HTTPLogPart selects which slice of a stored HTTP message to return.
 type HTTPLogPart string
 
 const (
-	HTTPLogPartRequestHeader  HTTPLogPart = "request_header"
-	HTTPLogPartRequestBody    HTTPLogPart = "request_body"
+	// HTTPLogPartRequestHeader returns the request headers (without the body).
+	HTTPLogPartRequestHeader HTTPLogPart = "request_header"
+	// HTTPLogPartRequestBody returns the request body (without the headers).
+	HTTPLogPartRequestBody HTTPLogPart = "request_body"
+	// HTTPLogPartResponseHeader returns the response headers (without the body).
 	HTTPLogPartResponseHeader HTTPLogPart = "response_header"
-	HTTPLogPartResponseBody   HTTPLogPart = "response_body"
+	// HTTPLogPartResponseBody returns the response body (without the headers).
+	HTTPLogPartResponseBody HTTPLogPart = "response_body"
 )
 
+// HTTPLogPartOptions configures HTTP log part retrieval.
 type HTTPLogPartOptions struct {
+	// DecodeGzip enables on-demand gzip decoding for response bodies only.
 	DecodeGzip bool
 }
 
+// HTTPLogPartResult is the response payload for a single log part.
 type HTTPLogPartResult struct {
 	Data            string `json:"data"`
 	Truncated       bool   `json:"truncated"`
@@ -32,10 +40,14 @@ type HTTPLogPartResult struct {
 }
 
 var (
-	ErrHTTPLogNotFound      = errors.New("http log not found")
-	ErrInvalidHTTPLogPart   = errors.New("invalid http log part")
+	// ErrHTTPLogNotFound indicates a missing HTTP log by ID.
+	ErrHTTPLogNotFound = errors.New("http log not found")
+	// ErrInvalidHTTPLogPart indicates an unknown part selector.
+	ErrInvalidHTTPLogPart = errors.New("invalid http log part")
+	// ErrGzipDecodeNotAllowed indicates an attempt to gzip-decode a non-response-body part.
 	ErrGzipDecodeNotAllowed = errors.New("gzip decode not allowed for this part")
-	ErrNotGzippedResponse   = errors.New("response is not gzipped")
+	// ErrNotGzippedResponse indicates the stored response is not gzip-compressed.
+	ErrNotGzippedResponse = errors.New("response is not gzipped")
 )
 
 type gzipDecodedBodyCacheEntry struct {
@@ -72,6 +84,13 @@ func httpHeadersContain(headers []byte, headerKey, token string) bool {
 	return false
 }
 
+// GetHTTPLogPart returns a specific part of a stored HTTP log message.
+//
+// Supported parts:
+// - request_header, request_body
+// - response_header, response_body
+//
+// When opts.DecodeGzip is true, only response_body is supported and the result may be truncated with a reason.
 func (a *Auditor) GetHTTPLogPart(id int, part HTTPLogPart, opts HTTPLogPartOptions) (*HTTPLogPartResult, error) {
 	a.httpMu.RLock()
 	log := a.httpLogsMap[id]
@@ -79,6 +98,10 @@ func (a *Auditor) GetHTTPLogPart(id int, part HTTPLogPart, opts HTTPLogPartOptio
 
 	if log == nil {
 		return nil, ErrHTTPLogNotFound
+	}
+
+	if opts.DecodeGzip && part != HTTPLogPartResponseBody {
+		return nil, ErrGzipDecodeNotAllowed
 	}
 
 	switch part {

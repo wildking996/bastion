@@ -8,6 +8,7 @@ import (
 	"strconv"
 )
 
+// Config holds Bastion runtime configuration.
 type Config struct {
 	LogLevel             string
 	LogFilePath          string
@@ -48,6 +49,7 @@ type Config struct {
 	HTTPGzipDecodeCacheSeconds int
 }
 
+// Settings is the global configuration instance populated from environment variables and flags.
 var Settings *Config
 
 // init initializes the package-level Settings with default configuration values sourced from environment variables.
