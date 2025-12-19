@@ -13,6 +13,15 @@ type Config struct {
 	LogFilePath          string
 	Port                 int
 	DatabaseURL          string
+	SQLitePragmasEnabled bool
+	SQLiteBusyTimeoutMS  int
+	SQLiteJournalMode    string
+	SQLiteSynchronous    string
+	SQLiteForeignKeys    bool
+	SQLiteMaxOpenConns   int
+	SQLiteMaxIdleConns   int
+	SQLiteConnMaxIdleSec int
+	SQLiteConnMaxLifeSec int
 	SSHConnectTimeout    int
 	SSHKeepaliveInterval int
 	AuditEnabled         bool
@@ -42,6 +51,15 @@ func init() {
 		LogFilePath:          getEnv("LOG_FILE", "./bastion.log"),
 		Port:                 getEnvInt("PORT", 7788),
 		DatabaseURL:          getEnv("DATABASE_URL", "bastion.db"),
+		SQLitePragmasEnabled: getEnvBool("SQLITE_PRAGMAS_ENABLED", true),
+		SQLiteBusyTimeoutMS:  getEnvInt("SQLITE_BUSY_TIMEOUT_MS", 5000),
+		SQLiteJournalMode:    getEnv("SQLITE_JOURNAL_MODE", "WAL"),
+		SQLiteSynchronous:    getEnv("SQLITE_SYNCHRONOUS", "NORMAL"),
+		SQLiteForeignKeys:    getEnvBool("SQLITE_FOREIGN_KEYS", true),
+		SQLiteMaxOpenConns:   getEnvInt("SQLITE_MAX_OPEN_CONNS", 1),
+		SQLiteMaxIdleConns:   getEnvInt("SQLITE_MAX_IDLE_CONNS", 1),
+		SQLiteConnMaxIdleSec: getEnvInt("SQLITE_CONN_MAX_IDLE_SECONDS", 300),
+		SQLiteConnMaxLifeSec: getEnvInt("SQLITE_CONN_MAX_LIFETIME_SECONDS", 0),
 		SSHConnectTimeout:    getEnvInt("SSH_CONNECT_TIMEOUT", 15),
 		SSHKeepaliveInterval: getEnvInt("SSH_KEEPALIVE_INTERVAL", 30),
 		AuditEnabled:         getEnvBool("AUDIT_ENABLED", true),
@@ -74,6 +92,15 @@ func ParseFlags() {
 		fmt.Fprintln(out, "  LOG_LEVEL                         Log level (DEBUG, INFO, WARN, ERROR)")
 		fmt.Fprintln(out, "  PORT                              HTTP server port (default 7788)")
 		fmt.Fprintln(out, "  DATABASE_URL                      SQLite database path (default bastion.db)")
+		fmt.Fprintln(out, "  SQLITE_PRAGMAS_ENABLED            Enable SQLite PRAGMAs (true/false, default true)")
+		fmt.Fprintln(out, "  SQLITE_BUSY_TIMEOUT_MS            SQLite busy_timeout in milliseconds (default 5000)")
+		fmt.Fprintln(out, "  SQLITE_JOURNAL_MODE               SQLite journal_mode (default WAL)")
+		fmt.Fprintln(out, "  SQLITE_SYNCHRONOUS                SQLite synchronous (default NORMAL)")
+		fmt.Fprintln(out, "  SQLITE_FOREIGN_KEYS               Enable SQLite foreign_keys (true/false, default true)")
+		fmt.Fprintln(out, "  SQLITE_MAX_OPEN_CONNS             SQLite MaxOpenConns (default 1)")
+		fmt.Fprintln(out, "  SQLITE_MAX_IDLE_CONNS             SQLite MaxIdleConns (default 1)")
+		fmt.Fprintln(out, "  SQLITE_CONN_MAX_IDLE_SECONDS      SQLite ConnMaxIdleTime in seconds (default 300)")
+		fmt.Fprintln(out, "  SQLITE_CONN_MAX_LIFETIME_SECONDS  SQLite ConnMaxLifetime in seconds (default 0)")
 		fmt.Fprintln(out, "  SSH_CONNECT_TIMEOUT               SSH connect timeout in seconds (default 15)")
 		fmt.Fprintln(out, "  SSH_KEEPALIVE_INTERVAL            SSH keepalive interval in seconds (default 30)")
 		fmt.Fprintln(out, "  AUDIT_ENABLED                     Enable HTTP audit logging (true/false, default true)")
@@ -93,6 +120,15 @@ func ParseFlags() {
 
 	port := flag.Int("port", Settings.Port, "HTTP server port (overrides PORT)")
 	db := flag.String("db", Settings.DatabaseURL, "SQLite database path (overrides DATABASE_URL)")
+	sqlitePragmasEnabled := flag.Bool("sqlite-pragmas", Settings.SQLitePragmasEnabled, "Enable SQLite PRAGMAs (overrides SQLITE_PRAGMAS_ENABLED)")
+	sqliteBusyTimeoutMS := flag.Int("sqlite-busy-timeout-ms", Settings.SQLiteBusyTimeoutMS, "SQLite busy_timeout in milliseconds (overrides SQLITE_BUSY_TIMEOUT_MS)")
+	sqliteJournalMode := flag.String("sqlite-journal-mode", Settings.SQLiteJournalMode, "SQLite journal_mode (overrides SQLITE_JOURNAL_MODE)")
+	sqliteSynchronous := flag.String("sqlite-synchronous", Settings.SQLiteSynchronous, "SQLite synchronous (overrides SQLITE_SYNCHRONOUS)")
+	sqliteForeignKeys := flag.Bool("sqlite-foreign-keys", Settings.SQLiteForeignKeys, "Enable SQLite foreign_keys PRAGMA (overrides SQLITE_FOREIGN_KEYS)")
+	sqliteMaxOpenConns := flag.Int("sqlite-max-open-conns", Settings.SQLiteMaxOpenConns, "SQLite MaxOpenConns (overrides SQLITE_MAX_OPEN_CONNS)")
+	sqliteMaxIdleConns := flag.Int("sqlite-max-idle-conns", Settings.SQLiteMaxIdleConns, "SQLite MaxIdleConns (overrides SQLITE_MAX_IDLE_CONNS)")
+	sqliteConnMaxIdleSec := flag.Int("sqlite-conn-max-idle-seconds", Settings.SQLiteConnMaxIdleSec, "SQLite ConnMaxIdleTime in seconds (overrides SQLITE_CONN_MAX_IDLE_SECONDS)")
+	sqliteConnMaxLifeSec := flag.Int("sqlite-conn-max-lifetime-seconds", Settings.SQLiteConnMaxLifeSec, "SQLite ConnMaxLifetime in seconds (overrides SQLITE_CONN_MAX_LIFETIME_SECONDS)")
 	logLevel := flag.String("log-level", Settings.LogLevel, "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL)")
 	logFile := flag.String("log-file", Settings.LogFilePath, "Log file path (overrides LOG_FILE)")
 	auditEnabled := flag.Bool("audit", Settings.AuditEnabled, "Enable HTTP traffic auditing (overrides AUDIT_ENABLED)")
@@ -119,6 +155,15 @@ func ParseFlags() {
 
 	Settings.Port = *port
 	Settings.DatabaseURL = *db
+	Settings.SQLitePragmasEnabled = *sqlitePragmasEnabled
+	Settings.SQLiteBusyTimeoutMS = *sqliteBusyTimeoutMS
+	Settings.SQLiteJournalMode = *sqliteJournalMode
+	Settings.SQLiteSynchronous = *sqliteSynchronous
+	Settings.SQLiteForeignKeys = *sqliteForeignKeys
+	Settings.SQLiteMaxOpenConns = *sqliteMaxOpenConns
+	Settings.SQLiteMaxIdleConns = *sqliteMaxIdleConns
+	Settings.SQLiteConnMaxIdleSec = *sqliteConnMaxIdleSec
+	Settings.SQLiteConnMaxLifeSec = *sqliteConnMaxLifeSec
 	Settings.LogLevel = *logLevel
 	Settings.LogFilePath = *logFile
 	Settings.AuditEnabled = *auditEnabled

@@ -74,6 +74,15 @@ Environment variables (overridden by flags where available):
 - `LOG_LEVEL` (`DEBUG|INFO|WARN|ERROR`, default `INFO`): global log verbosity.
 - `LOG_FILE` (default `./bastion.log`): file-only logging target; startup rotates previous file to `bastion.log.1`.
 - `DATABASE_URL` (default `bastion.db`): SQLite database file path.
+- `SQLITE_PRAGMAS_ENABLED` (default `true`): enable SQLite PRAGMA defaults.
+- `SQLITE_BUSY_TIMEOUT_MS` (default `5000`): PRAGMA `busy_timeout` in milliseconds.
+- `SQLITE_JOURNAL_MODE` (default `WAL`): PRAGMA `journal_mode`.
+- `SQLITE_SYNCHRONOUS` (default `NORMAL`): PRAGMA `synchronous`.
+- `SQLITE_FOREIGN_KEYS` (default `true`): PRAGMA `foreign_keys`.
+- `SQLITE_MAX_OPEN_CONNS` (default `1`): SQLite `MaxOpenConns`.
+- `SQLITE_MAX_IDLE_CONNS` (default `1`): SQLite `MaxIdleConns`.
+- `SQLITE_CONN_MAX_IDLE_SECONDS` (default `300`): SQLite `ConnMaxIdleTime` in seconds.
+- `SQLITE_CONN_MAX_LIFETIME_SECONDS` (default `0`): SQLite `ConnMaxLifetime` in seconds.
 - `AUDIT_ENABLED` (default `true`): enable HTTP audit logging.
 - `MAX_SESSION_CONNECTIONS` (default `1000`): max concurrent connections per mapping.
 - `FORWARD_BUFFER_SIZE` (default `32768`): TCP forward buffer size in bytes.
@@ -194,6 +203,15 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `LOG_LEVEL`（`DEBUG|INFO|WARN|ERROR`，默认 `INFO`）：日志级别。
 - `LOG_FILE`（默认 `./bastion.log`）：仅写文件日志，启动时将旧日志轮转到 `bastion.log.1`。
 - `DATABASE_URL`（默认 `bastion.db`）：SQLite 数据库文件路径。
+- `SQLITE_PRAGMAS_ENABLED`（默认 `true`）：启用 SQLite PRAGMA 默认值。
+- `SQLITE_BUSY_TIMEOUT_MS`（默认 `5000`）：PRAGMA `busy_timeout`（毫秒）。
+- `SQLITE_JOURNAL_MODE`（默认 `WAL`）：PRAGMA `journal_mode`。
+- `SQLITE_SYNCHRONOUS`（默认 `NORMAL`）：PRAGMA `synchronous`。
+- `SQLITE_FOREIGN_KEYS`（默认 `true`）：PRAGMA `foreign_keys`。
+- `SQLITE_MAX_OPEN_CONNS`（默认 `1`）：SQLite `MaxOpenConns`。
+- `SQLITE_MAX_IDLE_CONNS`（默认 `1`）：SQLite `MaxIdleConns`。
+- `SQLITE_CONN_MAX_IDLE_SECONDS`（默认 `300`）：SQLite `ConnMaxIdleTime`（秒）。
+- `SQLITE_CONN_MAX_LIFETIME_SECONDS`（默认 `0`）：SQLite `ConnMaxLifetime`（秒）。
 - `AUDIT_ENABLED`（默认 `true`）：启用 HTTP 审计日志。
 - `MAX_SESSION_CONNECTIONS`（默认 `1000`）：单映射最大并发连接数。
 - `FORWARD_BUFFER_SIZE`（默认 `32768`）：转发缓冲区大小（字节）。

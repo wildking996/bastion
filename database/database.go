@@ -25,13 +25,14 @@ func InitDB() error {
 
 	logWriter := log.Writer()
 
-	DB, err = gorm.Open(sqlite.Open(config.Settings.DatabaseURL), &gorm.Config{
-		Logger: logger.New(
+	dsn := buildSQLiteDSN(config.Settings.DatabaseURL, config.Settings)
+	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger: sqliteMetricsLogger{inner: logger.New(
 			log.New(logWriter, "\r\n", log.LstdFlags),
 			logger.Config{
 				LogLevel: logLevel,
 			},
-		),
+		)},
 	})
 	if err != nil {
 		return err
@@ -43,11 +44,30 @@ func InitDB() error {
 		return err
 	}
 
-	// Tune pool parameters for concurrency and resource usage
-	sqlDB.SetMaxIdleConns(10)                  // Max idle connections
-	sqlDB.SetMaxOpenConns(100)                 // Max open connections
-	sqlDB.SetConnMaxLifetime(time.Hour)        // Connection max lifetime (1 hour)
-	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // Idle connection max lifetime (10 minutes)
+	pool := currentSQLitePoolConfig(config.Settings)
+	sqlDB.SetMaxIdleConns(pool.maxIdleConns)
+	sqlDB.SetMaxOpenConns(pool.maxOpenConns)
+	sqlDB.SetConnMaxIdleTime(time.Duration(pool.maxIdleSec) * time.Second)
+	sqlDB.SetConnMaxLifetime(time.Duration(pool.maxLifeSec) * time.Second)
+
+	// Apply PRAGMAs again as a best-effort startup initialization (useful for existing DB files).
+	// Connection URL parameters ensure PRAGMAs are applied for new connections too.
+	if config.Settings.SQLitePragmasEnabled {
+		if config.Settings.SQLiteBusyTimeoutMS > 0 {
+			DB.Exec("PRAGMA busy_timeout = ?", config.Settings.SQLiteBusyTimeoutMS)
+		}
+		if journalMode := normalizeSQLiteJournalMode(config.Settings.SQLiteJournalMode); journalMode != "" {
+			DB.Exec("PRAGMA journal_mode = " + journalMode)
+		}
+		if synchronous := normalizeSQLiteSynchronous(config.Settings.SQLiteSynchronous); synchronous != "" {
+			DB.Exec("PRAGMA synchronous = " + synchronous)
+		}
+		if config.Settings.SQLiteForeignKeys {
+			DB.Exec("PRAGMA foreign_keys = ON")
+		} else {
+			DB.Exec("PRAGMA foreign_keys = OFF")
+		}
+	}
 
 	// Auto-migrate database tables
 	err = DB.AutoMigrate(&models.Bastion{}, &models.Mapping{})
