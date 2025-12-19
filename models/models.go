@@ -49,6 +49,8 @@ type Mapping struct {
 	RemoteHost string `json:"remote_host"`
 	RemotePort int    `json:"remote_port"`
 	ChainJSON  string `gorm:"column:chain_json;default:'[]'" json:"-"`
+	AllowJSON  string `gorm:"column:allow_cidrs_json;default:'[]'" json:"-"`
+	DenyJSON   string `gorm:"column:deny_cidrs_json;default:'[]'" json:"-"`
 	Type       string `gorm:"default:'tcp'" json:"type"`
 	AutoStart  bool   `gorm:"default:false" json:"auto_start"`
 }
@@ -68,6 +70,32 @@ func (m *Mapping) SetChain(chain []string) {
 	m.ChainJSON = string(data)
 }
 
+func (m *Mapping) GetAllowCIDRs() []string {
+	var cidrs []string
+	if m.AllowJSON != "" {
+		_ = json.Unmarshal([]byte(m.AllowJSON), &cidrs)
+	}
+	return cidrs
+}
+
+func (m *Mapping) SetAllowCIDRs(cidrs []string) {
+	data, _ := json.Marshal(cidrs)
+	m.AllowJSON = string(data)
+}
+
+func (m *Mapping) GetDenyCIDRs() []string {
+	var cidrs []string
+	if m.DenyJSON != "" {
+		_ = json.Unmarshal([]byte(m.DenyJSON), &cidrs)
+	}
+	return cidrs
+}
+
+func (m *Mapping) SetDenyCIDRs(cidrs []string) {
+	data, _ := json.Marshal(cidrs)
+	m.DenyJSON = string(data)
+}
+
 // MappingCreate request payload for creating a mapping
 type MappingCreate struct {
 	ID         string   `json:"id"`
@@ -76,6 +104,8 @@ type MappingCreate struct {
 	RemoteHost string   `json:"remote_host"`
 	RemotePort int      `json:"remote_port"`
 	Chain      []string `json:"chain"`
+	AllowCIDRs []string `json:"allow_cidrs"`
+	DenyCIDRs  []string `json:"deny_cidrs"`
 	Type       string   `json:"type"`
 	AutoStart  bool     `json:"auto_start"`
 }
@@ -90,6 +120,20 @@ func (m *MappingCreate) Normalize() {
 	for i, name := range m.Chain {
 		m.Chain[i] = strings.TrimSpace(name)
 	}
+
+	normalizeCIDRs := func(in []string) []string {
+		out := make([]string, 0, len(in))
+		for _, v := range in {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				continue
+			}
+			out = append(out, v)
+		}
+		return out
+	}
+	m.AllowCIDRs = normalizeCIDRs(m.AllowCIDRs)
+	m.DenyCIDRs = normalizeCIDRs(m.DenyCIDRs)
 }
 
 // MappingRead response model for reading mappings
@@ -100,6 +144,8 @@ type MappingRead struct {
 	RemoteHost string   `json:"remote_host"`
 	RemotePort int      `json:"remote_port"`
 	Chain      []string `json:"chain"`
+	AllowCIDRs []string `json:"allow_cidrs"`
+	DenyCIDRs  []string `json:"deny_cidrs"`
 	Type       string   `json:"type"`
 	AutoStart  bool     `json:"auto_start"`
 	Running    bool     `json:"running"`

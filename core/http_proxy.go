@@ -24,6 +24,7 @@ type HTTPProxySession struct {
 
 // NewHTTPProxySession creates an HTTP proxy session
 func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HTTPProxySession {
+	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
 	return &HTTPProxySession{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -31,6 +32,7 @@ func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HT
 			stopChan:       make(chan struct{}),
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
+			ipACL:          ipACL,
 		},
 	}
 }
@@ -72,6 +74,14 @@ func (s *HTTPProxySession) acceptLoop() {
 				log.Printf("Accept error: %v", err)
 				continue
 			}
+		}
+
+		if !s.shouldAcceptClient(conn) {
+			if config.Settings.LogLevel == "DEBUG" {
+				log.Printf("[HTTP] Rejected client %s by IP ACL", conn.RemoteAddr().String())
+			}
+			conn.Close()
+			continue
 		}
 
 		// Enforce connection limit
