@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
     <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <script src="https://unpkg.com/echarts@5/dist/echarts.min.js"></script>
     <style>
       body {
         background: #0b0c10;
@@ -382,6 +383,45 @@
         </el-col>
 
         <el-col :span="18">
+          <el-card shadow="never" style="margin-bottom: 18px">
+            <template #header>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <b>{{ t.trafficDashboard }}</b>
+                <div style="display: flex; gap: 10px; align-items: center">
+                  <span class="muted" style="font-size: 12px">{{
+                    t.autoRefresh
+                  }}:</span>
+                  <el-switch
+                    v-model="trafficChartEnabled"
+                    @change="toggleTrafficChart"
+                  ></el-switch>
+                  <el-input-number
+                    v-model="trafficChartIntervalSeconds"
+                    :min="1"
+                    :max="60"
+                    size="small"
+                    style="width: 100px"
+                    @change="updateTrafficChartInterval"
+                  ></el-input-number>
+                  <span class="muted" style="font-size: 12px">{{
+                    t.seconds
+                  }}</span>
+                </div>
+              </div>
+            </template>
+
+            <div
+              ref="trafficChartEl"
+              style="width: 100%; height: 260px"
+            ></div>
+          </el-card>
+
           <el-card shadow="never">
             <template #header>
               <div
@@ -632,7 +672,7 @@
           return r.json();
         });
 
-      const { createApp, ref, onMounted } = Vue;
+      const { createApp, ref, onMounted, onUnmounted } = Vue;
       const { ElMessage } = ElementPlus;
 
       const app = createApp({
@@ -643,6 +683,20 @@
           const loading = ref({ maps: false });
           const currentLang = ref(i18n.getLanguage());
           const t = ref(i18n.getAll());
+
+          const trafficChartEl = ref(null);
+          const trafficChartEnabled = ref(false);
+          const trafficChartIntervalSeconds = ref(2);
+          const trafficChartMaxPoints = 60;
+          let trafficChart = null;
+          let trafficChartTimer = null;
+          let lastTrafficSample = null;
+          const trafficSeries = ref({
+            times: [],
+            upRate: [],
+            downRate: [],
+            conns: [],
+          });
 
           const updateTitle = () => {
             document.title =
@@ -720,6 +774,174 @@
               trafficStats.value = stats;
             } catch (e) {
               // Silently handle stats loading errors
+            }
+          };
+
+          const sumStats = (stats) => {
+            let upBytes = 0;
+            let downBytes = 0;
+            let connections = 0;
+            if (!stats) return { upBytes, downBytes, connections };
+            for (const s of Object.values(stats)) {
+              if (!s) continue;
+              upBytes += Number(s.up_bytes || 0);
+              downBytes += Number(s.down_bytes || 0);
+              connections += Number(s.connections || 0);
+            }
+            return { upBytes, downBytes, connections };
+          };
+
+          const formatBytes = (b) => {
+            if (!b || b <= 0) return "0";
+            const i = Math.floor(Math.log(b) / Math.log(1024));
+            return (b / Math.pow(1024, i)).toFixed(1) + ["B", "K", "M", "G"][i];
+          };
+
+          const renderTrafficChart = () => {
+            if (!trafficChartEl.value) return;
+            if (!window.echarts) return;
+
+            if (!trafficChart) {
+              trafficChart = window.echarts.init(trafficChartEl.value);
+            }
+
+            trafficChart.setOption({
+              tooltip: {
+                trigger: "axis",
+              },
+              legend: {
+                textStyle: { color: "#e7e9ea" },
+                data: [t.value.upRate, t.value.downRate, t.value.connections],
+              },
+              grid: { left: 60, right: 60, top: 40, bottom: 30 },
+              xAxis: {
+                type: "category",
+                boundaryGap: false,
+                data: trafficSeries.value.times,
+                axisLabel: { color: "#909399" },
+              },
+              yAxis: [
+                {
+                  type: "value",
+                  name: t.value.bytesPerSecond,
+                  axisLabel: {
+                    color: "#909399",
+                    formatter: (v) => formatBytes(v),
+                  },
+                  splitLine: { lineStyle: { color: "#1a1d23" } },
+                },
+                {
+                  type: "value",
+                  name: t.value.connections,
+                  axisLabel: { color: "#909399" },
+                  splitLine: { show: false },
+                },
+              ],
+              series: [
+                {
+                  name: t.value.upRate,
+                  type: "line",
+                  showSymbol: false,
+                  smooth: true,
+                  data: trafficSeries.value.upRate,
+                },
+                {
+                  name: t.value.downRate,
+                  type: "line",
+                  showSymbol: false,
+                  smooth: true,
+                  data: trafficSeries.value.downRate,
+                },
+                {
+                  name: t.value.connections,
+                  type: "line",
+                  yAxisIndex: 1,
+                  showSymbol: false,
+                  smooth: true,
+                  data: trafficSeries.value.conns,
+                },
+              ],
+            });
+          };
+
+          const pushTrafficPoint = (timeLabel, upRate, downRate, connections) => {
+            const series = trafficSeries.value;
+            series.times.push(timeLabel);
+            series.upRate.push(upRate);
+            series.downRate.push(downRate);
+            series.conns.push(connections);
+
+            const overflow = series.times.length - trafficChartMaxPoints;
+            if (overflow > 0) {
+              series.times.splice(0, overflow);
+              series.upRate.splice(0, overflow);
+              series.downRate.splice(0, overflow);
+              series.conns.splice(0, overflow);
+            }
+          };
+
+          const refreshTrafficChart = async () => {
+            try {
+              const stats = await fetch("/api/stats").then((r) => r.json());
+              const totals = sumStats(stats);
+
+              const now = Date.now();
+              let upRate = 0;
+              let downRate = 0;
+              if (lastTrafficSample) {
+                const deltaSeconds = (now - lastTrafficSample.ts) / 1000;
+                if (deltaSeconds > 0) {
+                  upRate = (totals.upBytes - lastTrafficSample.upBytes) / deltaSeconds;
+                  downRate =
+                    (totals.downBytes - lastTrafficSample.downBytes) / deltaSeconds;
+                }
+              }
+              lastTrafficSample = {
+                ts: now,
+                upBytes: totals.upBytes,
+                downBytes: totals.downBytes,
+              };
+
+              const label = new Date(now).toLocaleTimeString([], {
+                hour12: false,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              });
+              pushTrafficPoint(label, Math.max(0, upRate), Math.max(0, downRate), totals.connections);
+              renderTrafficChart();
+            } catch (e) {
+              // keep chart stable on transient errors
+            }
+          };
+
+          const stopTrafficChart = () => {
+            if (trafficChartTimer) {
+              clearInterval(trafficChartTimer);
+              trafficChartTimer = null;
+            }
+          };
+
+          const startTrafficChart = async () => {
+            stopTrafficChart();
+            await refreshTrafficChart();
+            trafficChartTimer = setInterval(
+              refreshTrafficChart,
+              trafficChartIntervalSeconds.value * 1000
+            );
+          };
+
+          const toggleTrafficChart = (enabled) => {
+            if (enabled) {
+              startTrafficChart();
+            } else {
+              stopTrafficChart();
+            }
+          };
+
+          const updateTrafficChartInterval = () => {
+            if (trafficChartEnabled.value) {
+              startTrafficChart();
             }
           };
 
@@ -863,10 +1085,8 @@
             }
           };
 
-          const formatBytes = (b) => {
-            if (b === 0) return "0";
-            const i = Math.floor(Math.log(b) / Math.log(1024));
-            return (b / Math.pow(1024, i)).toFixed(1) + ["B", "K", "M", "G"][i];
+          const resizeTrafficChart = () => {
+            if (trafficChart) trafficChart.resize();
           };
 
           const refreshPage = () => {
@@ -911,6 +1131,16 @@
             await loadMappings();
             // 初始加载统计信息
             loadStats();
+            window.addEventListener("resize", resizeTrafficChart);
+          });
+
+          onUnmounted(() => {
+            window.removeEventListener("resize", resizeTrafficChart);
+            stopTrafficChart();
+            if (trafficChart) {
+              trafficChart.dispose();
+              trafficChart = null;
+            }
           });
 
           // 监听刷新间隔变化，重启自动刷新
@@ -937,6 +1167,7 @@
             i18n.setLanguage(lang);
             currentLang.value = lang;
             t.value = i18n.getAll();
+            renderTrafficChart();
           };
 
           const showShutdownDialog = () => {
@@ -1041,6 +1272,11 @@
             resetMappingForm,
             toggleAutoStart,
             formatBytes,
+            trafficChartEl,
+            trafficChartEnabled,
+            trafficChartIntervalSeconds,
+            toggleTrafficChart,
+            updateTrafficChartInterval,
             goToLogs,
             goToErrors,
             currentLang,
