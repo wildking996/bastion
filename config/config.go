@@ -10,24 +10,28 @@ import (
 
 // Config holds Bastion runtime configuration.
 type Config struct {
-	LogLevel             string
-	LogFilePath          string
-	Port                 int
-	DatabaseURL          string
-	SQLitePragmasEnabled bool
-	SQLiteBusyTimeoutMS  int
-	SQLiteJournalMode    string
-	SQLiteSynchronous    string
-	SQLiteForeignKeys    bool
-	SQLiteMaxOpenConns   int
-	SQLiteMaxIdleConns   int
-	SQLiteConnMaxIdleSec int
-	SQLiteConnMaxLifeSec int
-	SSHConnectTimeout    int
-	SSHKeepaliveInterval int
-	AuditEnabled         bool
-	CLIMode              bool
-	CLIServer            string // Server URL for CLI mode
+	LogLevel                        string
+	LogFilePath                     string
+	Port                            int
+	DatabaseURL                     string
+	SQLitePragmasEnabled            bool
+	SQLiteBusyTimeoutMS             int
+	SQLiteJournalMode               string
+	SQLiteSynchronous               string
+	SQLiteForeignKeys               bool
+	SQLiteMaxOpenConns              int
+	SQLiteMaxIdleConns              int
+	SQLiteConnMaxIdleSec            int
+	SQLiteConnMaxLifeSec            int
+	SSHConnectTimeout               int
+	SSHKeepaliveInterval            int
+	SSHPoolMaxConns                 int
+	SSHPoolIdleTimeoutSeconds       int
+	SSHPoolKeepaliveIntervalSeconds int
+	SSHPoolKeepaliveTimeoutMS       int
+	AuditEnabled                    bool
+	CLIMode                         bool
+	CLIServer                       string // Server URL for CLI mode
 
 	// Tunable limits and timeouts
 	MaxSessionConnections           int
@@ -56,23 +60,27 @@ var Settings *Config
 // It sets logging, server, SQLite pragmas and connection parameters, SSH timeouts, audit/CLI flags, and various tunable limits using environment overrides or sensible defaults.
 func init() {
 	Settings = &Config{
-		LogLevel:             getEnv("LOG_LEVEL", "INFO"),
-		LogFilePath:          getEnv("LOG_FILE", "./bastion.log"),
-		Port:                 getEnvInt("PORT", 7788),
-		DatabaseURL:          getEnv("DATABASE_URL", "bastion.db"),
-		SQLitePragmasEnabled: getEnvBool("SQLITE_PRAGMAS_ENABLED", true),
-		SQLiteBusyTimeoutMS:  getEnvInt("SQLITE_BUSY_TIMEOUT_MS", 5000),
-		SQLiteJournalMode:    getEnv("SQLITE_JOURNAL_MODE", "WAL"),
-		SQLiteSynchronous:    getEnv("SQLITE_SYNCHRONOUS", "NORMAL"),
-		SQLiteForeignKeys:    getEnvBool("SQLITE_FOREIGN_KEYS", true),
-		SQLiteMaxOpenConns:   getEnvInt("SQLITE_MAX_OPEN_CONNS", 1),
-		SQLiteMaxIdleConns:   getEnvInt("SQLITE_MAX_IDLE_CONNS", 1),
-		SQLiteConnMaxIdleSec: getEnvInt("SQLITE_CONN_MAX_IDLE_SECONDS", 300),
-		SQLiteConnMaxLifeSec: getEnvInt("SQLITE_CONN_MAX_LIFETIME_SECONDS", 0),
-		SSHConnectTimeout:    getEnvInt("SSH_CONNECT_TIMEOUT", 15),
-		SSHKeepaliveInterval: getEnvInt("SSH_KEEPALIVE_INTERVAL", 30),
-		AuditEnabled:         getEnvBool("AUDIT_ENABLED", true),
-		CLIMode:              getEnvBool("CLI_MODE", false),
+		LogLevel:                        getEnv("LOG_LEVEL", "INFO"),
+		LogFilePath:                     getEnv("LOG_FILE", "./bastion.log"),
+		Port:                            getEnvInt("PORT", 7788),
+		DatabaseURL:                     getEnv("DATABASE_URL", "bastion.db"),
+		SQLitePragmasEnabled:            getEnvBool("SQLITE_PRAGMAS_ENABLED", true),
+		SQLiteBusyTimeoutMS:             getEnvInt("SQLITE_BUSY_TIMEOUT_MS", 5000),
+		SQLiteJournalMode:               getEnv("SQLITE_JOURNAL_MODE", "WAL"),
+		SQLiteSynchronous:               getEnv("SQLITE_SYNCHRONOUS", "NORMAL"),
+		SQLiteForeignKeys:               getEnvBool("SQLITE_FOREIGN_KEYS", true),
+		SQLiteMaxOpenConns:              getEnvInt("SQLITE_MAX_OPEN_CONNS", 1),
+		SQLiteMaxIdleConns:              getEnvInt("SQLITE_MAX_IDLE_CONNS", 1),
+		SQLiteConnMaxIdleSec:            getEnvInt("SQLITE_CONN_MAX_IDLE_SECONDS", 300),
+		SQLiteConnMaxLifeSec:            getEnvInt("SQLITE_CONN_MAX_LIFETIME_SECONDS", 0),
+		SSHConnectTimeout:               getEnvInt("SSH_CONNECT_TIMEOUT", 15),
+		SSHKeepaliveInterval:            getEnvInt("SSH_KEEPALIVE_INTERVAL", 30),
+		SSHPoolMaxConns:                 getEnvInt("SSH_POOL_MAX_CONNS", 64),
+		SSHPoolIdleTimeoutSeconds:       getEnvInt("SSH_POOL_IDLE_TIMEOUT_SECONDS", 900),
+		SSHPoolKeepaliveIntervalSeconds: getEnvInt("SSH_POOL_KEEPALIVE_INTERVAL_SECONDS", 30),
+		SSHPoolKeepaliveTimeoutMS:       getEnvInt("SSH_POOL_KEEPALIVE_TIMEOUT_MS", 500),
+		AuditEnabled:                    getEnvBool("AUDIT_ENABLED", true),
+		CLIMode:                         getEnvBool("CLI_MODE", false),
 
 		MaxSessionConnections:           getEnvInt("MAX_SESSION_CONNECTIONS", 1000),
 		ForwardBufferSize:               getEnvInt("FORWARD_BUFFER_SIZE", 32768),
@@ -130,6 +138,10 @@ func ParseFlags() {
 		fmt.Fprintln(out, "  SESSION_IDLE_TIMEOUT_HOURS       Session idle timeout in hours (default 24)")
 		fmt.Fprintln(out, "  SSH_CONNECT_MAX_RETRIES          Max SSH connect retries per hop (default 3)")
 		fmt.Fprintln(out, "  SSH_CONNECT_RETRY_DELAY_SECONDS  Delay between SSH connect retries in seconds (default 2)")
+		fmt.Fprintln(out, "  SSH_POOL_MAX_CONNS              Maximum pooled SSH connections (default 64)")
+		fmt.Fprintln(out, "  SSH_POOL_IDLE_TIMEOUT_SECONDS   Idle seconds before closing pooled SSH connections (default 900)")
+		fmt.Fprintln(out, "  SSH_POOL_KEEPALIVE_INTERVAL_SECONDS Interval seconds for pooled SSH keepalive probes (default 30)")
+		fmt.Fprintln(out, "  SSH_POOL_KEEPALIVE_TIMEOUT_MS   Timeout for pooled SSH keepalive probe in ms (default 500)")
 		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_MAX_BYTES       Max decompressed bytes for on-demand gzip decode (default 1048576)")
 		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_TIMEOUT_MS      Timeout for on-demand gzip decode in ms (default 500)")
 		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_CACHE_SECONDS   Sliding cache TTL seconds for decoded results (default 60)")
@@ -149,6 +161,10 @@ func ParseFlags() {
 	logLevel := flag.String("log-level", Settings.LogLevel, "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL)")
 	logFile := flag.String("log-file", Settings.LogFilePath, "Log file path (overrides LOG_FILE)")
 	auditEnabled := flag.Bool("audit", Settings.AuditEnabled, "Enable HTTP traffic auditing (overrides AUDIT_ENABLED)")
+	sshPoolMaxConns := flag.Int("ssh-pool-max-conns", Settings.SSHPoolMaxConns, "Maximum pooled SSH connections (overrides SSH_POOL_MAX_CONNS)")
+	sshPoolIdleTimeout := flag.Int("ssh-pool-idle-timeout-seconds", Settings.SSHPoolIdleTimeoutSeconds, "Idle seconds before closing pooled SSH connections (overrides SSH_POOL_IDLE_TIMEOUT_SECONDS)")
+	sshPoolKeepaliveInt := flag.Int("ssh-pool-keepalive-interval-seconds", Settings.SSHPoolKeepaliveIntervalSeconds, "Interval seconds for pooled SSH keepalive probes (overrides SSH_POOL_KEEPALIVE_INTERVAL_SECONDS)")
+	sshPoolKeepaliveMS := flag.Int("ssh-pool-keepalive-timeout-ms", Settings.SSHPoolKeepaliveTimeoutMS, "Timeout for pooled SSH keepalive probe in ms (overrides SSH_POOL_KEEPALIVE_TIMEOUT_MS)")
 	cliMode := flag.Bool("cli", Settings.CLIMode, "Run in CLI mode (HTTP client only, no database)")
 	cliServer := flag.String("server", "http://localhost:7788", "Server URL for CLI mode")
 
@@ -184,6 +200,10 @@ func ParseFlags() {
 	Settings.LogLevel = *logLevel
 	Settings.LogFilePath = *logFile
 	Settings.AuditEnabled = *auditEnabled
+	Settings.SSHPoolMaxConns = *sshPoolMaxConns
+	Settings.SSHPoolIdleTimeoutSeconds = *sshPoolIdleTimeout
+	Settings.SSHPoolKeepaliveIntervalSeconds = *sshPoolKeepaliveInt
+	Settings.SSHPoolKeepaliveTimeoutMS = *sshPoolKeepaliveMS
 	Settings.CLIMode = *cliMode
 	Settings.CLIServer = *cliServer
 	Settings.MaxSessionConnections = *maxSessionConns

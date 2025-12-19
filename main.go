@@ -60,6 +60,9 @@ func main() {
 	// Start auditor
 	core.AuditorInstance.Start()
 
+	// Start SSH pool housekeeping (keepalive probes and idle reclamation).
+	core.Pool.StartHousekeeping()
+
 	// Initialize services
 	service.InitServices(database.DB, state.Global, core.AuditorInstance)
 
