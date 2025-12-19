@@ -25,6 +25,10 @@ type HTTPProxySession struct {
 // NewHTTPProxySession creates an HTTP proxy session
 func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HTTPProxySession {
 	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
+	chain := make([]string, 0, len(bastions))
+	for _, b := range bastions {
+		chain = append(chain, b.Name)
+	}
 	return &HTTPProxySession{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -33,6 +37,11 @@ func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HT
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
 			ipACL:          ipACL,
+			auditCtx: AuditContext{
+				MappingID:    mapping.ID,
+				LocalPort:    mapping.LocalPort,
+				BastionChain: chain,
+			},
 		},
 	}
 }

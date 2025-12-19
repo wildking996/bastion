@@ -3,6 +3,7 @@ package core
 import (
 	"bastion/config"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,9 @@ type HTTPLog struct {
 	ID              int       `json:"id"`
 	Timestamp       time.Time `json:"timestamp"`
 	ConnID          string    `json:"conn_id"`
+	MappingID       string    `json:"mapping_id"`
+	LocalPort       int       `json:"local_port"`
+	BastionChain    []string  `json:"bastion_chain,omitempty"`
 	Method          string    `json:"method"`
 	URL             string    `json:"url"`
 	Host            string    `json:"host"`
@@ -41,6 +45,13 @@ type HTTPLog struct {
 	RespSize        int       `json:"resp_size"`        // Response size
 	IsGzipped       bool      `json:"is_gzipped"`       // Whether response was gzip-compressed
 	DurationMs      int64     `json:"duration_ms"`      // Request/response latency in ms
+}
+
+// AuditContext carries session-level metadata to attach to HTTP audit logs.
+type AuditContext struct {
+	MappingID    string
+	LocalPort    int
+	BastionChain []string
 }
 
 var AuditorInstance *Auditor
@@ -94,14 +105,14 @@ func (a *Auditor) isRunning() bool {
 	return a.running
 }
 
-// LogHTTPMessage records a full HTTP message
-func (a *Auditor) LogHTTPMessage(connID string, msg *HTTPMessage) {
+// LogHTTPMessage records a full HTTP message and attaches audit context.
+func (a *Auditor) LogHTTPMessage(ctx AuditContext, connID string, msg *HTTPMessage) {
 	if !config.Settings.AuditEnabled {
 		return
 	}
 
 	if msg.Type == HTTPRequest {
-		a.pairMatcher.AddRequest(connID, msg)
+		a.pairMatcher.AddRequest(ctx, connID, msg)
 	} else {
 		a.pairMatcher.MatchResponse(connID, msg)
 	}
@@ -163,6 +174,9 @@ type HTTPLogFilter struct {
 	QueryRegex interface{ MatchString(string) bool }
 	Method     string
 	Host       string
+	URL        string
+	Bastion    string
+	LocalPort  *int
 	StatusCode int
 	Since      *time.Time
 	Until      *time.Time
@@ -213,6 +227,24 @@ func httpLogMatchesFilter(httpLog *HTTPLog, filter HTTPLogFilter) bool {
 	if filter.Host != "" && !strings.Contains(strings.ToLower(httpLog.Host), strings.ToLower(filter.Host)) {
 		return false
 	}
+	if filter.URL != "" && !strings.Contains(strings.ToLower(httpLog.URL), strings.ToLower(filter.URL)) {
+		return false
+	}
+	if filter.Bastion != "" {
+		matched := false
+		for _, name := range httpLog.BastionChain {
+			if strings.EqualFold(name, filter.Bastion) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if filter.LocalPort != nil && httpLog.LocalPort != *filter.LocalPort {
+		return false
+	}
 	if filter.StatusCode != 0 && httpLog.StatusCode != filter.StatusCode {
 		return false
 	}
@@ -229,6 +261,8 @@ func httpLogMatchesFilter(httpLog *HTTPLog, filter HTTPLogFilter) bool {
 
 	if filter.QueryRegex != nil {
 		return filter.QueryRegex.MatchString(httpLog.Method) ||
+			filter.QueryRegex.MatchString(httpLog.MappingID) ||
+			filter.QueryRegex.MatchString(strings.Join(httpLog.BastionChain, " ")) ||
 			filter.QueryRegex.MatchString(httpLog.Host) ||
 			filter.QueryRegex.MatchString(httpLog.URL) ||
 			filter.QueryRegex.MatchString(httpLog.Protocol) ||
@@ -240,6 +274,9 @@ func httpLogMatchesFilter(httpLog *HTTPLog, filter HTTPLogFilter) bool {
 
 	q := strings.ToLower(filter.Query)
 	return strings.Contains(strings.ToLower(httpLog.Method), q) ||
+		strings.Contains(strings.ToLower(httpLog.MappingID), q) ||
+		strings.Contains(strings.ToLower(strings.Join(httpLog.BastionChain, " ")), q) ||
+		strings.Contains(strconv.Itoa(httpLog.LocalPort), q) ||
 		strings.Contains(strings.ToLower(httpLog.Host), q) ||
 		strings.Contains(strings.ToLower(httpLog.URL), q) ||
 		strings.Contains(strings.ToLower(httpLog.Protocol), q) ||

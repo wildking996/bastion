@@ -143,7 +143,7 @@ func (c *CLIHttp) showHelp() {
 		{"", ""},
 		{"HTTP AUDIT:", ""},
 		{"http list [page]", "List HTTP logs (paginated)"},
-		{"http search <keyword> [page]", "Search HTTP logs (keyword filter)"},
+		{"http search [keyword] [--local-port <port>] [--bastion <name>] [--url <url>] [page]", "Search HTTP logs (multi-dimensional filters)"},
 		{"http show <id>", "Show HTTP request/response details"},
 		{"http clear", "Clear all HTTP logs"},
 		{"", ""},
@@ -1030,23 +1030,12 @@ func (c *CLIHttp) handleHTTPCommand(args []string) {
 		}
 		c.listHTTPLogs(page)
 	case "search", "find":
-		if len(args) < 2 {
-			fmt.Println("Usage: http search <keyword> [page]")
+		page, values, err := parseHTTPLogSearchArgs(args[1:])
+		if err != nil {
+			fmt.Println("Usage: http search [keyword] [--local-port <port>] [--bastion <name>] [--url <url>] [page]")
 			return
 		}
-		page := 1
-		if len(args) > 2 {
-			if p, err := strconv.Atoi(args[len(args)-1]); err == nil {
-				page = p
-				args = args[:len(args)-1]
-			}
-		}
-		q := strings.TrimSpace(strings.Join(args[1:], " "))
-		if q == "" {
-			fmt.Println("Usage: http search <keyword> [page]")
-			return
-		}
-		c.searchHTTPLogs(q, page)
+		c.searchHTTPLogs(values, page)
 	case "show", "get":
 		if len(args) < 2 {
 			fmt.Println("Usage: http show <id>")
@@ -1099,10 +1088,8 @@ func (c *CLIHttp) listHTTPLogs(page int) {
 	fmt.Printf("\nUse 'http show <id>' to view details\n")
 }
 
-func (c *CLIHttp) searchHTTPLogs(query string, page int) {
+func (c *CLIHttp) searchHTTPLogs(values url.Values, page int) {
 	pageSize := 20
-	values := url.Values{}
-	values.Set("q", query)
 
 	logs, total, err := c.client.GetHTTPLogsFiltered(page, pageSize, values)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -120,7 +121,7 @@ func (c *CLI) showHelp() {
 		{"", ""},
 		{"HTTP AUDIT:", ""},
 		{"http list [page]", "List HTTP logs (paginated)"},
-		{"http search <keyword> [page]", "Search HTTP logs (keyword filter)"},
+		{"http search [keyword] [--local-port <port>] [--bastion <name>] [--url <url>] [page]", "Search HTTP logs (multi-dimensional filters)"},
 		{"http show <id>", "Show HTTP request/response details"},
 		{"http clear", "Clear all HTTP logs"},
 		{"", ""},
@@ -752,23 +753,12 @@ func (c *CLI) handleHTTPCommand(args []string) {
 		}
 		c.listHTTPLogs(page)
 	case "search", "find":
-		if len(args) < 2 {
-			fmt.Println("Usage: http search <keyword> [page]")
+		page, values, err := parseHTTPLogSearchArgs(args[1:])
+		if err != nil {
+			fmt.Println("Usage: http search [keyword] [--local-port <port>] [--bastion <name>] [--url <url>] [page]")
 			return
 		}
-		page := 1
-		if len(args) > 2 {
-			if p, err := strconv.Atoi(args[len(args)-1]); err == nil {
-				page = p
-				args = args[:len(args)-1]
-			}
-		}
-		q := strings.TrimSpace(strings.Join(args[1:], " "))
-		if q == "" {
-			fmt.Println("Usage: http search <keyword> [page]")
-			return
-		}
-		c.searchHTTPLogs(q, page)
+		c.searchHTTPLogs(values, page)
 	case "show", "get":
 		if len(args) < 2 {
 			fmt.Println("Usage: http show <id>")
@@ -822,14 +812,25 @@ func (c *CLI) listHTTPLogs(page int) {
 	fmt.Printf("\nUse 'http show <id>' to view details\n")
 }
 
-func (c *CLI) searchHTTPLogs(query string, page int) {
+func (c *CLI) searchHTTPLogs(values url.Values, page int) {
 	if !config.Settings.AuditEnabled {
 		fmt.Println("HTTP audit is disabled. Enable with --audit flag.")
 		return
 	}
 
+	filter := core.HTTPLogFilter{
+		Query:   values.Get("q"),
+		URL:     values.Get("url"),
+		Bastion: values.Get("bastion"),
+	}
+	if lp := strings.TrimSpace(values.Get("local_port")); lp != "" {
+		if p, err := strconv.Atoi(lp); err == nil && p > 0 {
+			filter.LocalPort = &p
+		}
+	}
+
 	pageSize := 20
-	logs, total := service.GlobalServices.Audit.QueryHTTPLogs(core.HTTPLogFilter{Query: query}, page, pageSize)
+	logs, total := service.GlobalServices.Audit.QueryHTTPLogs(filter, page, pageSize)
 	if total == 0 {
 		fmt.Println("No HTTP logs available.")
 		return

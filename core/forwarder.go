@@ -50,6 +50,7 @@ type BaseSession struct {
 	httpParsers    map[string]*HTTPStreamParser // connID:direction -> parser
 	parserMu       sync.Mutex
 	ipACL          *IPAccessControl
+	auditCtx       AuditContext
 }
 
 func (s *BaseSession) shouldAcceptClient(conn net.Conn) bool {
@@ -84,6 +85,10 @@ type Socks5Session struct {
 // NewTunnelSession creates a TCP tunnel session
 func NewTunnelSession(mapping *models.Mapping, bastions []models.Bastion) *TunnelSession {
 	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
+	chain := make([]string, 0, len(bastions))
+	for _, b := range bastions {
+		chain = append(chain, b.Name)
+	}
 	return &TunnelSession{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -92,6 +97,11 @@ func NewTunnelSession(mapping *models.Mapping, bastions []models.Bastion) *Tunne
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
 			ipACL:          ipACL,
+			auditCtx: AuditContext{
+				MappingID:    mapping.ID,
+				LocalPort:    mapping.LocalPort,
+				BastionChain: chain,
+			},
 		},
 	}
 }
@@ -99,6 +109,10 @@ func NewTunnelSession(mapping *models.Mapping, bastions []models.Bastion) *Tunne
 // NewSocks5Session creates a SOCKS5 session
 func NewSocks5Session(mapping *models.Mapping, bastions []models.Bastion) *Socks5Session {
 	ipACL, _ := NewIPAccessControl(mapping.GetAllowCIDRs(), mapping.GetDenyCIDRs())
+	chain := make([]string, 0, len(bastions))
+	for _, b := range bastions {
+		chain = append(chain, b.Name)
+	}
 	return &Socks5Session{
 		BaseSession: BaseSession{
 			Mapping:        mapping,
@@ -107,6 +121,11 @@ func NewSocks5Session(mapping *models.Mapping, bastions []models.Bastion) *Socks
 			maxConnections: int32(config.Settings.MaxSessionConnections),
 			httpParsers:    make(map[string]*HTTPStreamParser),
 			ipACL:          ipACL,
+			auditCtx: AuditContext{
+				MappingID:    mapping.ID,
+				LocalPort:    mapping.LocalPort,
+				BastionChain: chain,
+			},
 		},
 	}
 }
@@ -504,7 +523,7 @@ func (s *BaseSession) feedHTTPParser(data []byte, direction, connID string) {
 
 	// Send complete messages to the auditor
 	for _, msg := range messages {
-		AuditorInstance.LogHTTPMessage(connID, msg)
+		AuditorInstance.LogHTTPMessage(s.auditCtx, connID, msg)
 	}
 }
 
@@ -522,7 +541,7 @@ func (s *BaseSession) flushHTTPParser(direction, connID string) {
 
 	if parser != nil {
 		if msg := parser.Flush(); msg != nil {
-			AuditorInstance.LogHTTPMessage(connID, msg)
+			AuditorInstance.LogHTTPMessage(s.auditCtx, connID, msg)
 		}
 	}
 }

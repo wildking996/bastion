@@ -14,37 +14,46 @@ func TestAuditor_QueryHTTPLogs_FilterAndPagination(t *testing.T) {
 
 	now := time.Now()
 	a.saveHTTPLog(&HTTPLog{
-		Timestamp:  now.Add(-3 * time.Hour),
-		ConnID:     "c1",
-		Method:     "GET",
-		Host:       "example.com",
-		URL:        "/foo",
-		Protocol:   "HTTP/1.1",
-		StatusCode: 200,
-		Request:    "GET /foo HTTP/1.1",
-		Response:   "HTTP/1.1 200 OK",
+		Timestamp:    now.Add(-3 * time.Hour),
+		ConnID:       "c1",
+		LocalPort:    7788,
+		MappingID:    "m1",
+		BastionChain: []string{"b1"},
+		Method:       "GET",
+		Host:         "example.com",
+		URL:          "/foo",
+		Protocol:     "HTTP/1.1",
+		StatusCode:   200,
+		Request:      "GET /foo HTTP/1.1",
+		Response:     "HTTP/1.1 200 OK",
 	})
 	a.saveHTTPLog(&HTTPLog{
-		Timestamp:  now.Add(-2 * time.Hour),
-		ConnID:     "c2",
-		Method:     "POST",
-		Host:       "api.example.com",
-		URL:        "/bar",
-		Protocol:   "HTTP/1.1",
-		StatusCode: 500,
-		Request:    "POST /bar HTTP/1.1",
-		Response:   "HTTP/1.1 500 Internal Server Error",
+		Timestamp:    now.Add(-2 * time.Hour),
+		ConnID:       "c2",
+		LocalPort:    7789,
+		MappingID:    "m2",
+		BastionChain: []string{"b2", "b3"},
+		Method:       "POST",
+		Host:         "api.example.com",
+		URL:          "/bar",
+		Protocol:     "HTTP/1.1",
+		StatusCode:   500,
+		Request:      "POST /bar HTTP/1.1",
+		Response:     "HTTP/1.1 500 Internal Server Error",
 	})
 	a.saveHTTPLog(&HTTPLog{
-		Timestamp:  now.Add(-1 * time.Hour),
-		ConnID:     "c3",
-		Method:     "GET",
-		Host:       "example.com",
-		URL:        "/baz",
-		Protocol:   "HTTP/1.1",
-		StatusCode: 404,
-		Request:    "GET /baz HTTP/1.1",
-		Response:   "HTTP/1.1 404 Not Found",
+		Timestamp:    now.Add(-1 * time.Hour),
+		ConnID:       "c3",
+		LocalPort:    7789,
+		MappingID:    "m2",
+		BastionChain: []string{},
+		Method:       "GET",
+		Host:         "example.com",
+		URL:          "/baz",
+		Protocol:     "HTTP/1.1",
+		StatusCode:   404,
+		Request:      "GET /baz HTTP/1.1",
+		Response:     "HTTP/1.1 404 Not Found",
 	})
 
 	since := now.Add(-90 * time.Minute)
@@ -74,6 +83,9 @@ func TestAuditor_QueryHTTPLogs_FilterAndPagination(t *testing.T) {
 	a.saveHTTPLog(&HTTPLog{
 		Timestamp:       now.Add(-30 * time.Minute),
 		ConnID:          "c4",
+		LocalPort:       7788,
+		MappingID:       "m1",
+		BastionChain:    []string{"b1"},
 		Method:          "GET",
 		Host:            "example.com",
 		URL:             "/gzip",
@@ -97,6 +109,25 @@ func TestAuditor_QueryHTTPLogs_FilterAndPagination(t *testing.T) {
 	if logs[0].ConnID != "c4" || logs[1].ConnID != "c3" {
 		t.Fatalf("unexpected ordering: got %q then %q", logs[0].ConnID, logs[1].ConnID)
 	}
+
+	// Local port filter
+	lp := 7788
+	_, total = a.QueryHTTPLogs(HTTPLogFilter{LocalPort: &lp}, 1, 20)
+	if total != 2 {
+		t.Fatalf("expected total 2 for local_port, got %d", total)
+	}
+
+	// Bastion filter
+	logs, total = a.QueryHTTPLogs(HTTPLogFilter{Bastion: "b3"}, 1, 20)
+	if total != 1 || len(logs) != 1 || logs[0].ConnID != "c2" {
+		t.Fatalf("unexpected bastion filter result: total=%d len=%d", total, len(logs))
+	}
+
+	// URL filter
+	_, total = a.QueryHTTPLogs(HTTPLogFilter{URL: "/ba"}, 1, 20)
+	if total != 2 {
+		t.Fatalf("expected total 2 for url filter, got %d", total)
+	}
 }
 
 func TestHTTPPairMatcher_StatusCodeParsed(t *testing.T) {
@@ -114,7 +145,7 @@ func TestHTTPPairMatcher_StatusCodeParsed(t *testing.T) {
 		Data:      []byte("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"),
 	}
 
-	httpLog := matcher.createHTTPLog("127.0.0.1:1->127.0.0.1:2", req, resp)
+	httpLog := matcher.createHTTPLog(AuditContext{MappingID: "m", LocalPort: 1, BastionChain: []string{"b"}}, "127.0.0.1:1->127.0.0.1:2", req, resp)
 	if httpLog.StatusCode != 404 {
 		t.Fatalf("expected status_code=404, got %d", httpLog.StatusCode)
 	}
