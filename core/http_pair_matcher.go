@@ -11,6 +11,7 @@ import (
 type PendingRequest struct {
 	Message   *HTTPMessage
 	Timestamp time.Time
+	Ctx       AuditContext
 }
 
 type HTTPPairMatcher struct {
@@ -27,13 +28,14 @@ func NewHTTPPairMatcher(onComplete func(*HTTPLog)) *HTTPPairMatcher {
 }
 
 // AddRequest enqueues a request awaiting response pairing
-func (m *HTTPPairMatcher) AddRequest(connID string, msg *HTTPMessage) {
+func (m *HTTPPairMatcher) AddRequest(ctx AuditContext, connID string, msg *HTTPMessage) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	pending := &PendingRequest{
 		Message:   msg,
 		Timestamp: msg.Timestamp,
+		Ctx:       ctx,
 	}
 
 	m.pendingRequests[connID] = append(m.pendingRequests[connID], pending)
@@ -55,7 +57,7 @@ func (m *HTTPPairMatcher) MatchResponse(connID string, response *HTTPMessage) {
 	m.pendingRequests[connID] = queue[1:]
 
 	// Build full log entry
-	httpLog := m.createHTTPLog(connID, request.Message, response)
+	httpLog := m.createHTTPLog(request.Ctx, connID, request.Message, response)
 
 	// Callback to persist
 	if m.onPairComplete != nil {
@@ -64,7 +66,7 @@ func (m *HTTPPairMatcher) MatchResponse(connID string, response *HTTPMessage) {
 }
 
 // createHTTPLog builds an HTTP log entry
-func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMessage) *HTTPLog {
+func (m *HTTPPairMatcher) createHTTPLog(ctx AuditContext, connID string, request, response *HTTPMessage) *HTTPLog {
 	// Parse request
 	method, url, protocol, host := parseRequest(request.Data)
 
@@ -90,19 +92,22 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 	}
 
 	return &HTTPLog{
-		Timestamp:  request.Timestamp,
-		ConnID:     enhancedConnID,
-		Method:     method,
-		URL:        url,
-		Host:       host,
-		Protocol:   protocol,
-		StatusCode: statusCode,
-		Request:    string(request.Data),
-		Response:   responseStr,
-		ReqSize:    len(request.Data),
-		RespSize:   respSize,
-		IsGzipped:  isGzipped,
-		DurationMs: durationMs,
+		Timestamp:    request.Timestamp,
+		ConnID:       enhancedConnID,
+		MappingID:    ctx.MappingID,
+		LocalPort:    ctx.LocalPort,
+		BastionChain: ctx.BastionChain,
+		Method:       method,
+		URL:          url,
+		Host:         host,
+		Protocol:     protocol,
+		StatusCode:   statusCode,
+		Request:      string(request.Data),
+		Response:     responseStr,
+		ReqSize:      len(request.Data),
+		RespSize:     respSize,
+		IsGzipped:    isGzipped,
+		DurationMs:   durationMs,
 	}
 }
 
@@ -149,7 +154,7 @@ func (m *HTTPPairMatcher) CleanupStale(maxAge time.Duration) int {
 		for _, req := range queue {
 			if now.Sub(req.Timestamp) > maxAge {
 				// Timed out; save as an incomplete request
-				httpLog := m.createHTTPLog(connID, req.Message, nil)
+				httpLog := m.createHTTPLog(req.Ctx, connID, req.Message, nil)
 				if m.onPairComplete != nil {
 					m.onPairComplete(httpLog)
 				}

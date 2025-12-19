@@ -228,6 +228,33 @@
                   @keyup.enter="applyFilters"
                 />
 
+                <el-input
+                  v-model="filterUrl"
+                  :placeholder="t.url"
+                  clearable
+                  size="small"
+                  style="width: 240px"
+                  @keyup.enter="applyFilters"
+                />
+
+                <el-input
+                  v-model="filterBastion"
+                  :placeholder="t.bastion"
+                  clearable
+                  size="small"
+                  style="width: 200px"
+                  @keyup.enter="applyFilters"
+                />
+
+                <el-input-number
+                  v-model="filterLocalPort"
+                  :min="0"
+                  :max="65535"
+                  size="small"
+                  style="width: 150px"
+                  :placeholder="t.localPort"
+                />
+
                 <el-input-number
                   v-model="filterStatus"
                   :min="0"
@@ -665,6 +692,9 @@
           const filterRegex = ref(false);
           const filterMethod = ref("");
           const filterHost = ref("");
+          const filterUrl = ref("");
+          const filterBastion = ref("");
+          const filterLocalPort = ref(null);
           const filterStatus = ref(null);
           const filterTimeRange = ref([]);
           const methodOptions = [
@@ -714,6 +744,18 @@
               if (host) {
                 params.set("host", host);
               }
+              const url = (filterUrl.value || "").trim();
+              if (url) {
+                params.set("url", url);
+              }
+              const bastion = (filterBastion.value || "").trim();
+              if (bastion) {
+                params.set("bastion", bastion);
+              }
+              const localPort = Number(filterLocalPort.value);
+              if (Number.isFinite(localPort) && localPort > 0) {
+                params.set("local_port", String(localPort));
+              }
               if (
                 filterStatus.value !== null &&
                 filterStatus.value !== undefined &&
@@ -755,6 +797,9 @@
             filterRegex.value = false;
             filterMethod.value = "";
             filterHost.value = "";
+            filterUrl.value = "";
+            filterBastion.value = "";
+            filterLocalPort.value = null;
             filterStatus.value = null;
             filterTimeRange.value = [];
             currentPage.value = 1;
@@ -1020,6 +1065,9 @@
             filterRegex,
             filterMethod,
             filterHost,
+            filterUrl,
+            filterBastion,
+            filterLocalPort,
             filterStatus,
             filterTimeRange,
             methodOptions,

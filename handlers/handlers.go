@@ -309,6 +309,20 @@ func GetHTTPLogs(c *gin.Context) {
 	if host := strings.TrimSpace(c.Query("host")); host != "" {
 		filter.Host = host
 	}
+	if urlStr := strings.TrimSpace(c.Query("url")); urlStr != "" {
+		filter.URL = urlStr
+	}
+	if bastion := strings.TrimSpace(c.Query("bastion")); bastion != "" {
+		filter.Bastion = bastion
+	}
+	if localPortStr := strings.TrimSpace(c.Query("local_port")); localPortStr != "" {
+		p, err := strconv.Atoi(localPortStr)
+		if err != nil || p <= 0 || p > 65535 {
+			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid local_port"})
+			return
+		}
+		filter.LocalPort = &p
+	}
 	if statusStr := strings.TrimSpace(c.Query("status")); statusStr != "" {
 		code, err := strconv.Atoi(statusStr)
 		if err != nil || code < 0 {
