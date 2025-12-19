@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -281,7 +282,76 @@ func GetHTTPLogs(c *gin.Context) {
 		}
 	}
 
-	logs, total := service.GlobalServices.Audit.GetHTTPLogs(page, pageSize)
+	filter := core.HTTPLogFilter{}
+
+	if q := strings.TrimSpace(c.Query("q")); q != "" {
+		filter.Query = q
+		if regexStr := c.Query("regex"); regexStr != "" {
+			useRegex, err := strconv.ParseBool(regexStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid regex flag"})
+				return
+			}
+			if useRegex {
+				re, err := regexp.Compile(q)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid regex pattern"})
+					return
+				}
+				filter.QueryRegex = re
+			}
+		}
+	}
+
+	if method := strings.TrimSpace(c.Query("method")); method != "" {
+		filter.Method = method
+	}
+	if host := strings.TrimSpace(c.Query("host")); host != "" {
+		filter.Host = host
+	}
+	if statusStr := strings.TrimSpace(c.Query("status")); statusStr != "" {
+		code, err := strconv.Atoi(statusStr)
+		if err != nil || code < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid status code"})
+			return
+		}
+		filter.StatusCode = code
+	}
+
+	parseTime := func(value string) (*time.Time, error) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil, nil
+		}
+		if unix, err := strconv.ParseInt(value, 10, 64); err == nil {
+			tm := time.Unix(unix, 0)
+			return &tm, nil
+		}
+		tm, err := time.Parse(time.RFC3339, value)
+		if err != nil {
+			return nil, err
+		}
+		return &tm, nil
+	}
+
+	if sinceStr := c.Query("since"); sinceStr != "" {
+		tm, err := parseTime(sinceStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid since timestamp"})
+			return
+		}
+		filter.Since = tm
+	}
+	if untilStr := c.Query("until"); untilStr != "" {
+		tm, err := parseTime(untilStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid until timestamp"})
+			return
+		}
+		filter.Until = tm
+	}
+
+	logs, total := service.GlobalServices.Audit.QueryHTTPLogs(filter, page, pageSize)
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":      logs,

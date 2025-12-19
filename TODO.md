@@ -82,12 +82,12 @@ Bastion 是一个用 Go 编写的轻量级 SSH 跳板机/代理工具，核心�
 ### 🎯 P1 - 逐步增强 (Medium Impact)
 
 #### 6. 日志搜索与过滤 (Log Search & Filter)
+- **状态**: ✅ 已实现（基础版：API/UI/CLI 支持关键词与常用过滤）
 - **描述**: Web UI 和 CLI 增强日志检索能力
 - **实现方式**:
-  - 关键词搜索 (URL, Host, Method)
-  - 时间范围筛选
-  - HTTP 状态码过滤
-  - 正则表达式支持
+  - API: `GET /api/http-logs` 支持 `q/regex/method/host/status/since/until` 过滤 + `page/page_size` 分页
+  - Web UI: 日志页新增筛选控件（关键词/方法/Host/状态码/时间范围/正则）
+  - CLI: `http search <keyword> [page]` 支持关键词搜索
 - **影响**: 问题排查效率 ⭐⭐⭐⭐
 - **复杂度**: 中
 

@@ -107,7 +107,7 @@ Key flags (see `./bastion --help` for full list):
 - Bastions: `GET /api/bastions`, `POST /api/bastions`, `PUT /api/bastions/:id`, `DELETE /api/bastions/:id`
 - Mappings: `GET /api/mappings`, `POST /api/mappings` (create only), `PUT /api/mappings/:id` (update when stopped), `DELETE /api/mappings/:id`, `POST /api/mappings/:id/start`, `POST /api/mappings/:id/stop`
 - Statistics: `GET /api/stats`
-- HTTP audit logs: `GET /api/http-logs`, `GET /api/http-logs/:id`, `DELETE /api/http-logs`
+- HTTP audit logs: `GET /api/http-logs` (supports `q/regex/method/host/status/since/until`), `GET /api/http-logs/:id`, `DELETE /api/http-logs`
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
 - Shutdown (confirmation code): `POST /api/shutdown/generate-code`, `POST /api/shutdown/verify`
 - Health/metrics: `GET /api/health`, `GET /api/metrics`
@@ -226,7 +226,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - 跳板机：`GET/POST/PUT/DELETE /api/bastions`
 - 映射：`GET /api/mappings`、`POST /api/mappings`（仅创建）、`PUT /api/mappings/:id`（停止状态可更新）、`DELETE /api/mappings/:id`、`POST /api/mappings/:id/start`、`POST /api/mappings/:id/stop`
 - 统计：`GET /api/stats`
-- HTTP 审计日志：`GET /api/http-logs`，`GET /api/http-logs/:id`，`DELETE /api/http-logs`
+- HTTP 审计日志：`GET /api/http-logs`（支持 `q/regex/method/host/status/since/until`），`GET /api/http-logs/:id`，`DELETE /api/http-logs`
 - 错误日志：`GET /api/error-logs`，`DELETE /api/error-logs`
 - 关闭：`POST /api/shutdown/generate-code`，`POST /api/shutdown/verify`
 - 健康/指标：`GET /api/health`，`GET /api/metrics`

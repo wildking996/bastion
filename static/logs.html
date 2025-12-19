@@ -184,6 +184,81 @@
                   >
                 </div>
               </div>
+
+              <div
+                style="
+                  margin-top: 12px;
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 10px;
+                  align-items: center;
+                "
+              >
+                <el-input
+                  v-model="filterQ"
+                  :placeholder="t.searchKeyword"
+                  clearable
+                  size="small"
+                  style="width: 280px"
+                  @keyup.enter="applyFilters"
+                />
+
+                <el-select
+                  v-model="filterMethod"
+                  clearable
+                  filterable
+                  size="small"
+                  style="width: 140px"
+                  :placeholder="t.method"
+                >
+                  <el-option
+                    v-for="m in methodOptions"
+                    :key="m"
+                    :label="m"
+                    :value="m"
+                  />
+                </el-select>
+
+                <el-input
+                  v-model="filterHost"
+                  :placeholder="t.host"
+                  clearable
+                  size="small"
+                  style="width: 240px"
+                  @keyup.enter="applyFilters"
+                />
+
+                <el-input-number
+                  v-model="filterStatus"
+                  :min="0"
+                  :max="999"
+                  size="small"
+                  style="width: 140px"
+                  :placeholder="t.httpStatusCode"
+                />
+
+                <el-date-picker
+                  v-model="filterTimeRange"
+                  type="datetimerange"
+                  size="small"
+                  :start-placeholder="t.since"
+                  :end-placeholder="t.until"
+                />
+
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <span style="font-size: 12px; color: #909399">{{
+                    t.regex
+                  }}</span>
+                  <el-switch v-model="filterRegex"></el-switch>
+                </div>
+
+                <el-button size="small" type="primary" @click="applyFilters"
+                  >{{ t.search }}</el-button
+                >
+                <el-button size="small" @click="resetFilters"
+                  >{{ t.reset }}</el-button
+                >
+              </div>
             </template>
 
             <el-table
@@ -233,6 +308,19 @@
                   <span class="code" style="font-size: 11px"
                     >{{ getFullUrl(s.row) }}</span
                   >
+                </template>
+              </el-table-column>
+
+              <el-table-column :label="t.httpStatusCode" width="110">
+                <template #default="s">
+                  <el-tag
+                    v-if="s.row.status_code"
+                    size="small"
+                    :type="getStatusType(s.row.status_code)"
+                  >
+                    {{ s.row.status_code }}
+                  </el-tag>
+                  <span v-else style="color: #909399">-</span>
                 </template>
               </el-table-column>
 
@@ -544,6 +632,23 @@
           const currentLang = ref(i18n.getLanguage());
           const t = ref(i18n.getAll());
 
+          const filterQ = ref("");
+          const filterRegex = ref(false);
+          const filterMethod = ref("");
+          const filterHost = ref("");
+          const filterStatus = ref(null);
+          const filterTimeRange = ref([]);
+          const methodOptions = [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH",
+            "HEAD",
+            "OPTIONS",
+            "CONNECT",
+          ];
+
           const updateTitle = () => {
             document.title =
               currentLang.value === "zh"
@@ -561,8 +666,45 @@
           const loadLogs = async () => {
             loading.value = true;
             try {
+              const params = new URLSearchParams();
+              params.set("page", String(currentPage.value));
+              params.set("page_size", String(pageSize.value));
+
+              const q = (filterQ.value || "").trim();
+              if (q) {
+                params.set("q", q);
+                if (filterRegex.value) {
+                  params.set("regex", "true");
+                }
+              }
+              const method = (filterMethod.value || "").trim();
+              if (method) {
+                params.set("method", method);
+              }
+              const host = (filterHost.value || "").trim();
+              if (host) {
+                params.set("host", host);
+              }
+              if (
+                filterStatus.value !== null &&
+                filterStatus.value !== undefined &&
+                filterStatus.value !== ""
+              ) {
+                params.set("status", String(filterStatus.value));
+              }
+              if (filterTimeRange.value && filterTimeRange.value.length === 2) {
+                params.set(
+                  "since",
+                  new Date(filterTimeRange.value[0]).toISOString()
+                );
+                params.set(
+                  "until",
+                  new Date(filterTimeRange.value[1]).toISOString()
+                );
+              }
+
               const response = await fetch(
-                `/api/http-logs?page=${currentPage.value}&page_size=${pageSize.value}`
+                `/api/http-logs?${params.toString()}`
               );
               const data = await response.json();
               logs.value = data.data || [];
@@ -572,6 +714,22 @@
             } finally {
               loading.value = false;
             }
+          };
+
+          const applyFilters = async () => {
+            currentPage.value = 1;
+            await loadLogs();
+          };
+
+          const resetFilters = async () => {
+            filterQ.value = "";
+            filterRegex.value = false;
+            filterMethod.value = "";
+            filterHost.value = "";
+            filterStatus.value = null;
+            filterTimeRange.value = [];
+            currentPage.value = 1;
+            await loadLogs();
           };
 
           const clearLogs = async () => {
@@ -665,6 +823,15 @@
               OPTIONS: "info",
             };
             return types[method] || "";
+          };
+
+          const getStatusType = (statusCode) => {
+            const code = Number(statusCode);
+            if (!Number.isFinite(code) || code <= 0) return "info";
+            if (code >= 200 && code < 300) return "success";
+            if (code >= 300 && code < 400) return "info";
+            if (code >= 400 && code < 500) return "warning";
+            return "danger";
           };
 
           const getFullUrl = (log) => {
@@ -778,6 +945,7 @@
             formatTime,
             formatBytes,
             getMethodType,
+            getStatusType,
             goBack,
             getDisplayResponse,
             getFullUrl,
@@ -789,6 +957,15 @@
             t,
             switchLanguage,
             elLocale,
+            filterQ,
+            filterRegex,
+            filterMethod,
+            filterHost,
+            filterStatus,
+            filterTimeRange,
+            methodOptions,
+            applyFilters,
+            resetFilters,
           };
         },
       });
