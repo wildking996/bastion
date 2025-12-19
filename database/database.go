@@ -13,7 +13,8 @@ import (
 
 var DB *gorm.DB
 
-// InitDB initializes the database
+// InitDB initializes and configures the package-level GORM SQLite database according to config.Settings, applies connection pool settings and optional SQLite PRAGMAs, runs automigrations for models.Bastion and models.Mapping, and assigns the resulting *gorm.DB to the package DB.
+// It returns an error if opening the database, obtaining the underlying sql.DB, or running the migrations fails.
 func InitDB() error {
 	var err error
 

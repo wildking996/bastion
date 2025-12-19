@@ -45,6 +45,8 @@ type Config struct {
 
 var Settings *Config
 
+// init initializes the package-level Settings with default configuration values sourced from environment variables.
+// It sets logging, server, SQLite pragmas and connection parameters, SSH timeouts, audit/CLI flags, and various tunable limits using environment overrides or sensible defaults.
 func init() {
 	Settings = &Config{
 		LogLevel:             getEnv("LOG_LEVEL", "INFO"),
@@ -80,7 +82,8 @@ func init() {
 	}
 }
 
-// ParseFlags parses command line flags and overrides default config/environment variables
+// ParseFlags parses command-line flags, applies any overrides to the package-level Settings, and updates configuration accordingly.
+// It also provides a custom usage message and handles --help (prints usage and exits) and --version (prints build info and exits).
 func ParseFlags() {
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
