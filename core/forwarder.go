@@ -523,7 +523,7 @@ func (s *BaseSession) feedHTTPParser(data []byte, direction, connID string) {
 
 	// Send complete messages to the auditor
 	for _, msg := range messages {
-		AuditorInstance.LogHTTPMessage(s.auditCtx, connID, msg)
+		AuditorInstance.EnqueueHTTPMessage(s.auditCtx, connID, msg)
 	}
 }
 
@@ -541,7 +541,7 @@ func (s *BaseSession) flushHTTPParser(direction, connID string) {
 
 	if parser != nil {
 		if msg := parser.Flush(); msg != nil {
-			AuditorInstance.LogHTTPMessage(s.auditCtx, connID, msg)
+			AuditorInstance.EnqueueHTTPMessage(s.auditCtx, connID, msg)
 		}
 	}
 }

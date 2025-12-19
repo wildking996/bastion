@@ -518,6 +518,11 @@ func GetMetrics(c *gin.Context) {
 
 	metrics := gin.H{
 		"timestamp": s.timestamp,
+		"audit": gin.H{
+			"queue_len":      service.GlobalServices.Audit.AuditQueueLen(),
+			"queue_capacity": service.GlobalServices.Audit.AuditQueueCap(),
+			"dropped_total":  service.GlobalServices.Audit.AuditDroppedTotal(),
+		},
 		"ssh_pool": gin.H{
 			"connections":        core.Pool.SSHPoolConnections(),
 			"active_conns":       core.Pool.SSHPoolActiveConns(),
@@ -595,6 +600,18 @@ func GetPrometheusMetrics(c *gin.Context) {
 	buf.WriteString("# HELP bastion_sessions_connections Active connections across sessions.\n")
 	buf.WriteString("# TYPE bastion_sessions_connections gauge\n")
 	fmt.Fprintf(&buf, "bastion_sessions_connections %d\n", s.totalConnections)
+
+	buf.WriteString("# HELP bastion_http_audit_queue_capacity HTTP audit queue capacity.\n")
+	buf.WriteString("# TYPE bastion_http_audit_queue_capacity gauge\n")
+	fmt.Fprintf(&buf, "bastion_http_audit_queue_capacity %d\n", service.GlobalServices.Audit.AuditQueueCap())
+
+	buf.WriteString("# HELP bastion_http_audit_queue_len Current number of buffered audit messages.\n")
+	buf.WriteString("# TYPE bastion_http_audit_queue_len gauge\n")
+	fmt.Fprintf(&buf, "bastion_http_audit_queue_len %d\n", service.GlobalServices.Audit.AuditQueueLen())
+
+	buf.WriteString("# HELP bastion_http_audit_dropped_total Total audit messages dropped due to backpressure.\n")
+	buf.WriteString("# TYPE bastion_http_audit_dropped_total counter\n")
+	fmt.Fprintf(&buf, "bastion_http_audit_dropped_total %d\n", service.GlobalServices.Audit.AuditDroppedTotal())
 
 	buf.WriteString("# HELP bastion_ssh_pool_connections Number of pooled SSH client connections.\n")
 	buf.WriteString("# TYPE bastion_ssh_pool_connections gauge\n")

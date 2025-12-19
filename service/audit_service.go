@@ -34,6 +34,21 @@ func (s *AuditService) GetHTTPLogPart(id int, part core.HTTPLogPart, opts core.H
 	return s.auditor.GetHTTPLogPart(id, part, opts)
 }
 
+// AuditQueueLen returns the current audit queue length.
+func (s *AuditService) AuditQueueLen() int {
+	return s.auditor.AuditQueueLen()
+}
+
+// AuditQueueCap returns the audit queue capacity.
+func (s *AuditService) AuditQueueCap() int {
+	return s.auditor.AuditQueueCap()
+}
+
+// AuditDroppedTotal returns the total count of dropped audit messages.
+func (s *AuditService) AuditDroppedTotal() uint64 {
+	return s.auditor.AuditDroppedTotal()
+}
+
 // ClearHTTPLogs removes all HTTP logs
 func (s *AuditService) ClearHTTPLogs() {
 	s.auditor.ClearHTTPLogs()
