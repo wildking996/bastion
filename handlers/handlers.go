@@ -497,7 +497,8 @@ func promLabelEscape(s string) string {
 	return s
 }
 
-// GetPrometheusMetrics exposes Prometheus exposition format metrics at /metrics.
+// GetPrometheusMetrics writes Prometheus-formatted metrics to the HTTP response for scraping.
+// It collects runtime and application metrics — including build info, SQLite connectivity and error counters, session and connection counts, traffic byte totals, HTTP log count, goroutine and memory statistics, and GC runs — and returns them using the Prometheus exposition content type.
 func GetPrometheusMetrics(c *gin.Context) {
 	s := collectMetricsSnapshot()
 

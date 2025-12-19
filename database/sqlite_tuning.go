@@ -14,6 +14,9 @@ type sqlitePoolConfig struct {
 	maxLifeSec   int
 }
 
+// sanitizeSQLitePoolConfig normalizes a sqlitePoolConfig, enforcing sensible bounds on its fields.
+// It ensures maxOpenConns is at least 1, clamps maxIdleConns to the range [0, maxOpenConns],
+// and forces maxIdleSec and maxLifeSec to be at least 0. The sanitized config is returned.
 func sanitizeSQLitePoolConfig(cfg sqlitePoolConfig) sqlitePoolConfig {
 	if cfg.maxOpenConns < 1 {
 		cfg.maxOpenConns = 1
@@ -33,6 +36,11 @@ func sanitizeSQLitePoolConfig(cfg sqlitePoolConfig) sqlitePoolConfig {
 	return cfg
 }
 
+// buildSQLiteDSN constructs a SQLite DSN from dbPath and settings.
+// If settings.SQLitePragmasEnabled is true, it appends SQLite PRAGMA parameters
+// (busy_timeout, journal_mode, synchronous, foreign_keys) to the query portion,
+// preserving any existing query parameters. If no query parameters are present
+// after processing, the base path is returned without a trailing "?".
 func buildSQLiteDSN(dbPath string, settings *config.Config) string {
 	base, rawQuery, hasQuery := strings.Cut(dbPath, "?")
 
@@ -66,6 +74,11 @@ func buildSQLiteDSN(dbPath string, settings *config.Config) string {
 	return base + "?" + encoded
 }
 
+// currentSQLitePoolConfig builds a sqlitePoolConfig from the provided Config's SQLite
+// connection and pool settings and enforces sane bounds.
+//
+// It reads SQLiteMaxOpenConns, SQLiteMaxIdleConns, SQLiteConnMaxIdleSec and
+// SQLiteConnMaxLifeSec from settings and returns the sanitized configuration.
 func currentSQLitePoolConfig(settings *config.Config) sqlitePoolConfig {
 	return sanitizeSQLitePoolConfig(sqlitePoolConfig{
 		maxOpenConns: settings.SQLiteMaxOpenConns,
@@ -75,6 +88,8 @@ func currentSQLitePoolConfig(settings *config.Config) sqlitePoolConfig {
 	})
 }
 
+// normalizeSQLiteJournalMode converts the input to an accepted uppercase SQLite journal mode or returns an empty string if the value is invalid.
+// Accepted modes: "WAL", "DELETE", "TRUNCATE", "PERSIST", "MEMORY", "OFF".
 func normalizeSQLiteJournalMode(value string) string {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	switch value {
@@ -85,6 +100,8 @@ func normalizeSQLiteJournalMode(value string) string {
 	}
 }
 
+// normalizeSQLiteSynchronous normalizes and validates a SQLite `synchronous` pragma value.
+// It returns the trimmed, uppercased value if it is one of `OFF`, `NORMAL`, `FULL`, `EXTRA` or one of the numeric strings `0`, `1`, `2`, `3`; otherwise it returns an empty string.
 func normalizeSQLiteSynchronous(value string) string {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	switch value {
