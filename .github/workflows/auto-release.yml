@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: auto-release-main
@@ -113,3 +114,20 @@ jobs:
           # Push tags with PAT so the tag push can trigger downstream workflows (e.g. release.yml).
           git remote set-url origin "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin "$NEW_TAG"
+
+      - name: Trigger release workflow
+        if: steps.semver.outputs.should_release == 'true'
+        shell: bash
+        env:
+          NEW_TAG: ${{ steps.semver.outputs.new_tag }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # GitHub may suppress workflows triggered by pushes originating from other workflows (even for tags).
+          # Dispatch Release workflow explicitly so a GitHub Release is always created for NEW_TAG.
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/dispatches" \
+            -d "{\"ref\":\"main\",\"inputs\":{\"tag\":\"${NEW_TAG}\"}}"
