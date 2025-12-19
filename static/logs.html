@@ -484,9 +484,16 @@
                 >
               </el-descriptions-item>
               <el-descriptions-item :label="t.compression" :span="2">
-                <el-tag v-if="currentLog.is_gzipped" type="info" size="small"
-                  >{{ t.gzipDecompressed }}</el-tag
-                >
+                <template v-if="currentLog.is_gzipped">
+                  <el-tag type="info" size="small">{{ t.gzipCompressed }}</el-tag>
+                  <el-tag
+                    v-if="currentLog.response_decoded"
+                    type="success"
+                    size="small"
+                    style="margin-left: 8px"
+                    >{{ t.gzipDecompressed }}</el-tag
+                  >
+                </template>
                 <span v-else style="color: #909399">{{ t.notCompressed }}</span>
               </el-descriptions-item>
             </el-descriptions>
@@ -501,6 +508,13 @@
             <template #footer>
               <el-button @click="responseDialogVisible = false"
                 >{{ t.close }}</el-button
+              >
+              <el-button
+                v-if="currentLog.is_gzipped && !currentLog.response_decoded"
+                type="warning"
+                :loading="decodingGzip"
+                @click="decodeGzipResponseBody(currentLog)"
+                >{{ t.decodeGzipBody }}</el-button
               >
               <el-button
                 type="primary"
@@ -581,6 +595,13 @@
                       type="info"
                       size="small"
                       style="margin-left: 8px"
+                      >{{ t.gzipCompressed }}</el-tag
+                    >
+                    <el-tag
+                      v-if="currentLog.is_gzipped && currentLog.response_decoded"
+                      type="success"
+                      size="small"
+                      style="margin-left: 8px"
                       >{{ t.gzipDecompressed }}</el-tag
                     >
                   </h4>
@@ -597,6 +618,13 @@
               >
               <el-button type="success" @click="copyContent(currentLog.request)"
                 >{{ t.copyRequest }}</el-button
+              >
+              <el-button
+                v-if="currentLog.is_gzipped && !currentLog.response_decoded"
+                type="warning"
+                :loading="decodingGzip"
+                @click="decodeGzipResponseBody(currentLog)"
+                >{{ t.decodeGzipBody }}</el-button
               >
               <el-button
                 type="primary"
@@ -624,6 +652,7 @@
           const responseDialogVisible = ref(false);
           const pairDialogVisible = ref(false);
           const currentLog = ref({});
+          const decodingGzip = ref(false);
           const autoRefresh = ref(false);
           const refreshInterval = ref(60); // 默认60秒
           const currentPage = ref(1);
@@ -781,6 +810,34 @@
             ElMessage.success(t.value.copiedRequestAndResponse);
           };
 
+          const decodeGzipResponseBody = async (log) => {
+            if (!log || !log.id) return;
+            decodingGzip.value = true;
+            try {
+              const response = await fetch(
+                `/api/http-logs/${log.id}?part=response_body&decode=gzip`
+              );
+              const data = await response.json();
+              if (!response.ok) {
+                throw new Error(data.detail || response.statusText);
+              }
+
+              log.response_decoded = data.data || "";
+
+              if (data.truncated_reason) {
+                ElMessage.warning(
+                  `${t.value.decodeGzipTruncated}: ${data.truncated_reason}`
+                );
+              } else {
+                ElMessage.success(t.value.decodeGzipSuccess);
+              }
+            } catch (e) {
+              ElMessage.error(t.value.decodeGzipFailed + ": " + e.message);
+            } finally {
+              decodingGzip.value = false;
+            }
+          };
+
           const getDisplayResponse = (log) => {
             // 如果有解压后的响应，优先显示解压后的内容
             if (log.is_gzipped && log.response_decoded) {
@@ -930,6 +987,7 @@
             responseDialogVisible,
             pairDialogVisible,
             currentLog,
+            decodingGzip,
             autoRefresh,
             refreshInterval,
             currentPage,
@@ -942,6 +1000,7 @@
             showPair,
             copyContent,
             copyBoth,
+            decodeGzipResponseBody,
             formatTime,
             formatBytes,
             getMethodType,

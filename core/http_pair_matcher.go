@@ -2,9 +2,6 @@ package core
 
 import (
 	"bytes"
-	"compress/gzip"
-	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -77,7 +74,6 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 
 	// Parse response
 	responseStr := ""
-	responseDecoded := ""
 	isGzipped := false
 	respSize := 0
 	statusCode := 0
@@ -86,7 +82,7 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 	if response != nil {
 		responseStr = string(response.Data)
 		respSize = len(response.Data)
-		isGzipped, responseDecoded = tryDecompressGzipData(response.Data)
+		isGzipped = httpMessageHasGzipEncoding(response.Data)
 		statusCode = parseResponseStatusCode(response.Data)
 
 		// Compute latency in milliseconds
@@ -94,20 +90,19 @@ func (m *HTTPPairMatcher) createHTTPLog(connID string, request, response *HTTPMe
 	}
 
 	return &HTTPLog{
-		Timestamp:       request.Timestamp,
-		ConnID:          enhancedConnID,
-		Method:          method,
-		URL:             url,
-		Host:            host,
-		Protocol:        protocol,
-		StatusCode:      statusCode,
-		Request:         string(request.Data),
-		Response:        responseStr,
-		ResponseDecoded: responseDecoded,
-		ReqSize:         len(request.Data),
-		RespSize:        respSize,
-		IsGzipped:       isGzipped,
-		DurationMs:      durationMs,
+		Timestamp:  request.Timestamp,
+		ConnID:     enhancedConnID,
+		Method:     method,
+		URL:        url,
+		Host:       host,
+		Protocol:   protocol,
+		StatusCode: statusCode,
+		Request:    string(request.Data),
+		Response:   responseStr,
+		ReqSize:    len(request.Data),
+		RespSize:   respSize,
+		IsGzipped:  isGzipped,
+		DurationMs: durationMs,
 	}
 }
 
@@ -196,148 +191,4 @@ func parseRequest(data []byte) (method, url, protocol, host string) {
 	}
 
 	return
-}
-
-// tryDecompressGzipData attempts to decompress gzip content
-func tryDecompressGzipData(data []byte) (bool, string) {
-	// Check response headers for Content-Encoding: gzip
-	lines := bytes.Split(data, []byte("\r\n"))
-	hasGzipEncoding := false
-	hasChunkedEncoding := false
-	headerEndIndex := 0
-
-	for i, line := range lines {
-		if len(line) == 0 {
-			headerEndIndex = i
-			break
-		}
-		lowerLine := bytes.ToLower(line)
-		if bytes.Contains(lowerLine, []byte("content-encoding")) &&
-			bytes.Contains(lowerLine, []byte("gzip")) {
-			hasGzipEncoding = true
-		}
-		if bytes.Contains(lowerLine, []byte("transfer-encoding")) &&
-			bytes.Contains(lowerLine, []byte("chunked")) {
-			hasChunkedEncoding = true
-		}
-	}
-
-	if !hasGzipEncoding {
-		return false, ""
-	}
-
-	// Extract body
-	if headerEndIndex >= len(lines)-1 {
-		return true, "[No body or body parsing failed]"
-	}
-
-	bodyStart := bytes.Index(data, []byte("\r\n\r\n"))
-	if bodyStart == -1 {
-		return true, "[Body not found]"
-	}
-	bodyStart += 4
-
-	if bodyStart >= len(data) {
-		return true, "[Empty body]"
-	}
-
-	bodyData := data[bodyStart:]
-
-	// Decode chunked body if needed
-	if hasChunkedEncoding {
-		bodyData = dechunkBodyData(bodyData)
-		if bodyData == nil {
-			return true, "[Chunked decoding failed]"
-		}
-	}
-
-	// Ensure this is actually gzip data
-	if len(bodyData) < 2 || bodyData[0] != 0x1f || bodyData[1] != 0x8b {
-		return true, "[Not valid gzip data]"
-	}
-
-	// Attempt gzip decompress
-	reader, err := gzip.NewReader(bytes.NewReader(bodyData))
-	if err != nil {
-		return true, "[Gzip decompression failed: " + err.Error() + "]"
-	}
-	defer reader.Close()
-
-	decompressed, err := io.ReadAll(reader)
-	if err != nil {
-		return true, "[Gzip read failed: " + err.Error() + "]"
-	}
-
-	// Drop Content-Encoding, Content-Length, and Transfer-Encoding headers
-	var newHeaders []string
-	for _, line := range lines[:headerEndIndex] {
-		lineStr := string(line)
-		lowerLine := strings.ToLower(lineStr)
-		if !strings.Contains(lowerLine, "content-encoding") &&
-			!strings.Contains(lowerLine, "content-length") &&
-			!strings.Contains(lowerLine, "transfer-encoding") {
-			newHeaders = append(newHeaders, lineStr)
-		}
-	}
-
-	result := strings.Join(newHeaders, "\r\n") + "\r\n\r\n" + string(decompressed)
-	return true, result
-}
-
-// dechunkBodyData decodes chunked transfer encoding
-func dechunkBodyData(data []byte) []byte {
-	var result bytes.Buffer
-	reader := bytes.NewReader(data)
-
-	for {
-		// Read chunk size line
-		var chunkSizeLine []byte
-		for {
-			b, err := reader.ReadByte()
-			if err != nil {
-				return nil
-			}
-			chunkSizeLine = append(chunkSizeLine, b)
-			if len(chunkSizeLine) >= 2 &&
-				chunkSizeLine[len(chunkSizeLine)-2] == '\r' &&
-				chunkSizeLine[len(chunkSizeLine)-1] == '\n' {
-				break
-			}
-		}
-
-		// Parse chunk size
-		sizeStr := strings.TrimSpace(string(chunkSizeLine[:len(chunkSizeLine)-2]))
-		if idx := strings.Index(sizeStr, ";"); idx > 0 {
-			sizeStr = sizeStr[:idx]
-		}
-
-		var chunkSize int
-		_, err := fmt.Sscanf(sizeStr, "%x", &chunkSize)
-		if err != nil {
-			return nil
-		}
-
-		// Chunk size 0 means end
-		if chunkSize == 0 {
-			break
-		}
-
-		// Read chunk data
-		chunkData := make([]byte, chunkSize)
-		n, err := reader.Read(chunkData)
-		if err != nil || n != chunkSize {
-			return nil
-		}
-		result.Write(chunkData)
-
-		// Read and discard trailing \r\n
-		if _, err := reader.ReadByte(); err != nil {
-			return nil
-		}
-		if _, err := reader.ReadByte(); err != nil {
-			return nil
-		}
-	}
-
-	return result.Bytes()
 }

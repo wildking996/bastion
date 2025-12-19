@@ -370,6 +370,40 @@ func GetHTTPLogDetail(c *gin.Context) {
 		return
 	}
 
+	if partStr := strings.TrimSpace(c.Query("part")); partStr != "" {
+		part := core.HTTPLogPart(partStr)
+
+		opts := core.HTTPLogPartOptions{}
+		if decodeStr := strings.TrimSpace(c.Query("decode")); decodeStr != "" {
+			if !strings.EqualFold(decodeStr, "gzip") {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid decode value"})
+				return
+			}
+			if part != core.HTTPLogPartResponseBody {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": "decode is only supported for part=response_body"})
+				return
+			}
+			opts.DecodeGzip = true
+		}
+
+		result, err := service.GlobalServices.Audit.GetHTTPLogPart(id, part, opts)
+		if err != nil {
+			if errors.Is(err, core.ErrHTTPLogNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"detail": "Log not found"})
+				return
+			}
+			if errors.Is(err, core.ErrInvalidHTTPLogPart) || errors.Is(err, core.ErrNotGzippedResponse) {
+				c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, result)
+		return
+	}
+
 	log := service.GlobalServices.Audit.GetHTTPLogByID(id)
 	if log == nil {
 		c.JSON(http.StatusNotFound, gin.H{"detail": "Log not found"})

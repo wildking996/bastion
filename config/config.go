@@ -41,6 +41,11 @@ type Config struct {
 	SessionIdleTimeoutHours         int
 	SSHConnectMaxRetries            int
 	SSHConnectRetryDelaySeconds     int
+
+	// HTTP audit log gzip decode (on-demand)
+	HTTPGzipDecodeMaxBytes     int
+	HTTPGzipDecodeTimeoutMS    int
+	HTTPGzipDecodeCacheSeconds int
 }
 
 var Settings *Config
@@ -79,6 +84,10 @@ func init() {
 		SessionIdleTimeoutHours:         getEnvInt("SESSION_IDLE_TIMEOUT_HOURS", 24),
 		SSHConnectMaxRetries:            getEnvInt("SSH_CONNECT_MAX_RETRIES", 3),
 		SSHConnectRetryDelaySeconds:     getEnvInt("SSH_CONNECT_RETRY_DELAY_SECONDS", 2),
+
+		HTTPGzipDecodeMaxBytes:     getEnvInt("HTTP_GZIP_DECODE_MAX_BYTES", 1048576),
+		HTTPGzipDecodeTimeoutMS:    getEnvInt("HTTP_GZIP_DECODE_TIMEOUT_MS", 500),
+		HTTPGzipDecodeCacheSeconds: getEnvInt("HTTP_GZIP_DECODE_CACHE_SECONDS", 60),
 	}
 }
 
@@ -119,6 +128,9 @@ func ParseFlags() {
 		fmt.Fprintln(out, "  SESSION_IDLE_TIMEOUT_HOURS       Session idle timeout in hours (default 24)")
 		fmt.Fprintln(out, "  SSH_CONNECT_MAX_RETRIES          Max SSH connect retries per hop (default 3)")
 		fmt.Fprintln(out, "  SSH_CONNECT_RETRY_DELAY_SECONDS  Delay between SSH connect retries in seconds (default 2)")
+		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_MAX_BYTES       Max decompressed bytes for on-demand gzip decode (default 1048576)")
+		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_TIMEOUT_MS      Timeout for on-demand gzip decode in ms (default 500)")
+		fmt.Fprintln(out, "  HTTP_GZIP_DECODE_CACHE_SECONDS   Sliding cache TTL seconds for decoded results (default 60)")
 	}
 
 	port := flag.Int("port", Settings.Port, "HTTP server port (overrides PORT)")
