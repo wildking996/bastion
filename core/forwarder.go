@@ -14,12 +14,14 @@ import (
 	"time"
 )
 
-// bufferPool reuses buffers to reduce GC pressure
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		buf := make([]byte, config.Settings.ForwardBufferSize)
-		return &buf
-	},
+var forwardBufferPoolOnce sync.Once
+var forwardBufferPool *HierarchicalBufferPool
+
+func getForwardBufferPool() *HierarchicalBufferPool {
+	forwardBufferPoolOnce.Do(func() {
+		forwardBufferPool = NewHierarchicalBufferPool(config.Settings.ForwardBufferSize)
+	})
+	return forwardBufferPool
 }
 
 // Session represents a generic session
@@ -449,15 +451,10 @@ func (s *BaseSession) pipe(client, remote net.Conn, connID string) {
 
 // copyData copies data between connections
 func (s *BaseSession) copyData(dst, src net.Conn, direction, connID string) {
-	// Get buffer from pool
-	bufAny := bufferPool.Get()
-	bufPtr, ok := bufAny.(*[]byte)
-	if !ok || bufPtr == nil {
-		buf := make([]byte, config.Settings.ForwardBufferSize)
-		bufPtr = &buf
-	}
+	pool := getForwardBufferPool()
+	bufPtr := pool.Get(pool.InitialSize())
 	buf := *bufPtr
-	defer bufferPool.Put(bufPtr)
+	defer pool.Put(bufPtr)
 
 	// Ensure the write end of the destination connection is closed when this goroutine exits
 	defer func() {
@@ -494,6 +491,15 @@ func (s *BaseSession) copyData(dst, src net.Conn, direction, connID string) {
 					return // Exit on write error
 				}
 				written += w
+			}
+
+			// If we regularly fill the buffer, upgrade to the next size class for better throughput.
+			if n == len(buf) {
+				if next, ok := pool.NextSize(len(buf)); ok && next > len(buf) {
+					pool.Put(bufPtr)
+					bufPtr = pool.Get(next)
+					buf = *bufPtr
+				}
 			}
 		}
 		if err != nil {

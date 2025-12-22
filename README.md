@@ -86,7 +86,7 @@ Environment variables (overridden by flags where available):
 - `SQLITE_CONN_MAX_LIFETIME_SECONDS` (default `0`): SQLite `ConnMaxLifetime` in seconds.
 - `AUDIT_ENABLED` (default `true`): enable HTTP audit logging.
 - `MAX_SESSION_CONNECTIONS` (default `1000`): max concurrent connections per mapping.
-- `FORWARD_BUFFER_SIZE` (default `32768`): TCP forward buffer size in bytes.
+- `FORWARD_BUFFER_SIZE` (default `32768`): maximum forward buffer size in bytes (adaptive pooled buffers use multiple size classes up to this value; buffers >64KiB are not pooled).
 - `AUDIT_QUEUE_SIZE` (default `1000`): asynchronous audit queue length; when full, audit messages are dropped to prioritize forwarding performance.
 - `MAX_HTTP_LOGS` (default `1000`): in-memory HTTP log cap.
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES` (default `5`): stale HTTP pair cleanup interval.
@@ -228,7 +228,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `SQLITE_CONN_MAX_LIFETIME_SECONDS`（默认 `0`）：SQLite `ConnMaxLifetime`（秒）。
 - `AUDIT_ENABLED`（默认 `true`）：启用 HTTP 审计日志。
 - `MAX_SESSION_CONNECTIONS`（默认 `1000`）：单映射最大并发连接数。
-- `FORWARD_BUFFER_SIZE`（默认 `32768`）：转发缓冲区大小（字节）。
+- `FORWARD_BUFFER_SIZE`（默认 `32768`）：转发缓冲区最大大小（字节；转发会使用多档可复用 buffer，按需增长至该上限；>64KiB 的 buffer 不会进入对象池）。
 - `AUDIT_QUEUE_SIZE`（默认 `1000`）：异步审计队列长度；满时将丢弃审计消息以优先保障转发性能。
 - `MAX_HTTP_LOGS`（默认 `1000`）：HTTP 日志内存上限。
 - `HTTP_PAIR_CLEANUP_INTERVAL_MINUTES`（默认 `5`）：清理未配对 HTTP 请求的间隔分钟数。
