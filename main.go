@@ -52,6 +52,11 @@ func main() {
 		defer logFile.Close()
 	}
 
+	// Clean up leftover artifacts from previous self-updates (best-effort).
+	// On Windows, the helper process cannot delete the old executable while it is running,
+	// so the new process retries deletion after startup.
+	go cleanupSelfUpdateArtifacts()
+
 	// Check if CLI mode is requested
 	if config.Settings.CLIMode {
 		log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -247,6 +252,42 @@ func main() {
 	}
 
 	log.Println("Server exited")
+}
+
+func cleanupSelfUpdateArtifacts() {
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+	exePath, _ = filepath.Abs(exePath)
+
+	dir := filepath.Dir(exePath)
+	base := filepath.Base(exePath)
+
+	oldPath := filepath.Join(dir, fmt.Sprintf(".%s.old", base))
+	newPath := filepath.Join(dir, fmt.Sprintf(".%s.new", base))
+
+	cleanupWithRetry("old executable", oldPath, 60*time.Second)
+	cleanupWithRetry("new executable", newPath, 10*time.Second)
+}
+
+func cleanupWithRetry(name, path string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for {
+		err := os.Remove(path)
+		if err == nil {
+			log.Printf("update: cleaned up %s (%s)", name, path)
+			return
+		}
+		if os.IsNotExist(err) {
+			return
+		}
+		if time.Now().After(deadline) {
+			log.Printf("update: cleanup %s timed out (%s): %v", name, path, err)
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func runSelfUpdateHelper(args []string) {
