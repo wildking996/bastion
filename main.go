@@ -335,6 +335,7 @@ func runSelfUpdateHelper(args []string) {
 		waitForParentExit(parentPID, 30*time.Second)
 		log.Printf("update-helper: restarting %s args=%v", target, restartArgs)
 		cmd := exec.Command(target, restartArgs...)
+		cmd.Dir = filepath.Dir(target)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
@@ -342,6 +343,15 @@ func runSelfUpdateHelper(args []string) {
 			return
 		}
 		log.Printf("update-helper: restart started (pid=%d)", cmd.Process.Pid)
+
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case err := <-done:
+			log.Printf("update-helper: restart process exited early: %v", err)
+		case <-time.After(3 * time.Second):
+			log.Printf("update-helper: restart process still running after 3s")
+		}
 	}
 }
 
