@@ -280,11 +280,16 @@
             >{{ t.generateCode }}</el-button
           >
           <el-button
-            v-if="updateInfo.update_available === true"
+            v-if="
+              updateInfo.update_available === true &&
+              updateCode &&
+              updateInputCode &&
+              updateInputCode === updateCode &&
+              updateCodeExpiry !== t.codeExpired
+            "
             type="warning"
             :loading="updateApplying"
             @click="applyUpdate"
-            :disabled="!updateInputCode"
             >{{ t.applyUpdate }}</el-button
           >
         </template>
