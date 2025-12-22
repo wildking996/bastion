@@ -47,6 +47,8 @@ jobs:
             bump="minor"
           elif printf '%s\n' "$messages" | grep -Eq '^(fix|perf)(\([^)]+\))?: '; then
             bump="patch"
+          elif printf '%s\n' "$messages" | grep -Eq '^chore\(release\)(\([^)]+\))?: '; then
+            bump="patch"
           fi
 
           if [ "$bump" = "none" ]; then
