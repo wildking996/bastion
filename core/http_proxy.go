@@ -126,16 +126,18 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 	clientAddr := clientConn.RemoteAddr().String()
 	localAddr := clientConn.LocalAddr().String()
 
-	// Handshake timeout (shared with SOCKS5 settings)
-	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.Socks5HandshakeTimeoutSeconds) * time.Second)); err != nil {
-		log.Printf("[HTTP] Failed to set handshake deadline for client %s: %v", clientAddr, err)
-	}
+	handshakeReadTimeout := time.Duration(config.Settings.Socks5HandshakeReadTimeoutSeconds) * time.Second
+	handshakeWriteTimeout := time.Duration(config.Settings.Socks5HandshakeWriteTimeoutSeconds) * time.Second
+	transferReadTimeout := time.Duration(config.Settings.TransferReadTimeoutSeconds) * time.Second
+	transferWriteTimeout := time.Duration(config.Settings.TransferWriteTimeoutSeconds) * time.Second
 
-	reader := bufio.NewReader(clientConn)
+	clientConnWithTimeout := NewDeadlineConn(clientConn, handshakeReadTimeout, handshakeWriteTimeout)
+
+	reader := bufio.NewReader(clientConnWithTimeout)
 	req, err := http.ReadRequest(reader)
 	if err != nil {
 		log.Printf("[HTTP] Failed to parse request from %s: %v", clientAddr, err)
-		sendSimpleHTTPError(clientConn, http.StatusBadRequest, "Bad Request")
+		sendSimpleHTTPError(clientConnWithTimeout, http.StatusBadRequest, "Bad Request")
 		return
 	}
 
@@ -165,24 +167,19 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 	}
 	if err != nil {
 		log.Printf("[HTTP] Failed to dial remote %s from client %s: %v", remoteAddr, clientAddr, err)
-		sendSimpleHTTPError(clientConn, http.StatusBadGateway, "Bad Gateway")
+		sendSimpleHTTPError(clientConnWithTimeout, http.StatusBadGateway, "Bad Gateway")
 		return
 	}
 	defer remoteConn.Close()
 
-	// Handshake complete; switch to session timeout
-	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("[HTTP] Failed to set session deadline for client %s: %v", clientAddr, err)
-	}
-	if err := remoteConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("[HTTP] Failed to set session deadline for remote %s: %v", remoteAddr, err)
-	}
+	clientConnWithTimeout.SetTimeouts(transferReadTimeout, transferWriteTimeout)
+	remoteConnWithTimeout := NewDeadlineConn(remoteConn, transferReadTimeout, transferWriteTimeout)
 
 	if strings.EqualFold(req.Method, http.MethodConnect) {
-		if _, err := clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+		if _, err := clientConnWithTimeout.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 			return
 		}
-		s.pipe(clientConn, remoteConn, connID)
+		s.pipe(clientConnWithTimeout, remoteConnWithTimeout, connID)
 		return
 	}
 
@@ -202,7 +199,7 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 	}
 
 	trackingWriter := &proxyTrackingWriter{
-		dst:       remoteConn,
+		dst:       remoteConnWithTimeout,
 		session:   &s.BaseSession,
 		direction: "request",
 		connID:    connID,
@@ -214,7 +211,7 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 	}
 
 	if isWebSocket {
-		remoteReader := bufio.NewReader(remoteConn)
+		remoteReader := bufio.NewReader(remoteConnWithTimeout)
 		resp, err := http.ReadResponse(remoteReader, req)
 		if err != nil {
 			log.Printf("[HTTP] Failed to read response from %s: %v", remoteAddr, err)
@@ -222,7 +219,7 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 		}
 
 		respWriter := &proxyTrackingWriter{
-			dst:       clientConn,
+			dst:       clientConnWithTimeout,
 			session:   &s.BaseSession,
 			direction: "response",
 			connID:    connID,
@@ -242,12 +239,12 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 			return
 		}
 
-		s.pipeRaw(clientConn, reader, remoteConn, remoteReader, connID)
+		s.pipeRaw(clientConnWithTimeout, reader, remoteConnWithTimeout, remoteReader, connID)
 		return
 	}
 
 	// Copy response while updating stats and audit logs
-	s.copyData(clientConn, remoteConn, "response", connID)
+	s.copyData(clientConnWithTimeout, remoteConnWithTimeout, "response", connID)
 }
 
 func isWebSocketUpgradeRequest(req *http.Request) bool {
@@ -300,8 +297,8 @@ func (s *HTTPProxySession) copyRaw(dst net.Conn, src io.Reader, direction, connI
 		if r := recover(); r != nil {
 			log.Printf("Recovered from panic in copyRaw [%s]: %v", direction, r)
 		}
-		if tcpConn, ok := dst.(*net.TCPConn); ok {
-			_ = tcpConn.CloseWrite()
+		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
+			_ = cw.CloseWrite()
 		}
 	}()
 
