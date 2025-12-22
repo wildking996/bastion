@@ -34,18 +34,22 @@ type Config struct {
 	CLIServer                       string // Server URL for CLI mode
 
 	// Tunable limits and timeouts
-	MaxSessionConnections           int
-	ForwardBufferSize               int
-	AuditQueueSize                  int
-	MaxHTTPLogs                     int
-	HTTPPairCleanupIntervalMinutes  int
-	HTTPPairMaxAgeMinutes           int
-	GoroutineMonitorIntervalSeconds int
-	GoroutineWarnThreshold          int
-	Socks5HandshakeTimeoutSeconds   int
-	SessionIdleTimeoutHours         int
-	SSHConnectMaxRetries            int
-	SSHConnectRetryDelaySeconds     int
+	MaxSessionConnections              int
+	ForwardBufferSize                  int
+	AuditQueueSize                     int
+	MaxHTTPLogs                        int
+	HTTPPairCleanupIntervalMinutes     int
+	HTTPPairMaxAgeMinutes              int
+	GoroutineMonitorIntervalSeconds    int
+	GoroutineWarnThreshold             int
+	Socks5HandshakeTimeoutSeconds      int
+	Socks5HandshakeReadTimeoutSeconds  int
+	Socks5HandshakeWriteTimeoutSeconds int
+	SessionIdleTimeoutHours            int
+	TransferReadTimeoutSeconds         int
+	TransferWriteTimeoutSeconds        int
+	SSHConnectMaxRetries               int
+	SSHConnectRetryDelaySeconds        int
 
 	// HTTP audit log gzip decode (on-demand)
 	HTTPGzipDecodeMaxBytes     int
@@ -59,6 +63,10 @@ var Settings *Config
 // init initializes the package-level Settings with default configuration values sourced from environment variables.
 // It sets logging, server, SQLite pragmas and connection parameters, SSH timeouts, audit/CLI flags, and various tunable limits using environment overrides or sensible defaults.
 func init() {
+	socks5HandshakeTimeoutSeconds := getEnvInt("SOCKS5_HANDSHAKE_TIMEOUT_SECONDS", 30)
+	sessionIdleTimeoutHours := getEnvInt("SESSION_IDLE_TIMEOUT_HOURS", 24)
+	transferTimeoutSeconds := sessionIdleTimeoutHours * 3600
+
 	Settings = &Config{
 		LogLevel:                        getEnv("LOG_LEVEL", "INFO"),
 		LogFilePath:                     getEnv("LOG_FILE", "./bastion.log"),
@@ -82,18 +90,22 @@ func init() {
 		AuditEnabled:                    getEnvBool("AUDIT_ENABLED", true),
 		CLIMode:                         getEnvBool("CLI_MODE", false),
 
-		MaxSessionConnections:           getEnvInt("MAX_SESSION_CONNECTIONS", 1000),
-		ForwardBufferSize:               getEnvInt("FORWARD_BUFFER_SIZE", 32768),
-		AuditQueueSize:                  getEnvInt("AUDIT_QUEUE_SIZE", 1000),
-		MaxHTTPLogs:                     getEnvInt("MAX_HTTP_LOGS", 1000),
-		HTTPPairCleanupIntervalMinutes:  getEnvInt("HTTP_PAIR_CLEANUP_INTERVAL_MINUTES", 5),
-		HTTPPairMaxAgeMinutes:           getEnvInt("HTTP_PAIR_MAX_AGE_MINUTES", 10),
-		GoroutineMonitorIntervalSeconds: getEnvInt("GOROUTINE_MONITOR_INTERVAL_SECONDS", 30),
-		GoroutineWarnThreshold:          getEnvInt("GOROUTINE_WARN_THRESHOLD", 1000),
-		Socks5HandshakeTimeoutSeconds:   getEnvInt("SOCKS5_HANDSHAKE_TIMEOUT_SECONDS", 30),
-		SessionIdleTimeoutHours:         getEnvInt("SESSION_IDLE_TIMEOUT_HOURS", 24),
-		SSHConnectMaxRetries:            getEnvInt("SSH_CONNECT_MAX_RETRIES", 3),
-		SSHConnectRetryDelaySeconds:     getEnvInt("SSH_CONNECT_RETRY_DELAY_SECONDS", 2),
+		MaxSessionConnections:              getEnvInt("MAX_SESSION_CONNECTIONS", 1000),
+		ForwardBufferSize:                  getEnvInt("FORWARD_BUFFER_SIZE", 32768),
+		AuditQueueSize:                     getEnvInt("AUDIT_QUEUE_SIZE", 1000),
+		MaxHTTPLogs:                        getEnvInt("MAX_HTTP_LOGS", 1000),
+		HTTPPairCleanupIntervalMinutes:     getEnvInt("HTTP_PAIR_CLEANUP_INTERVAL_MINUTES", 5),
+		HTTPPairMaxAgeMinutes:              getEnvInt("HTTP_PAIR_MAX_AGE_MINUTES", 10),
+		GoroutineMonitorIntervalSeconds:    getEnvInt("GOROUTINE_MONITOR_INTERVAL_SECONDS", 30),
+		GoroutineWarnThreshold:             getEnvInt("GOROUTINE_WARN_THRESHOLD", 1000),
+		Socks5HandshakeTimeoutSeconds:      socks5HandshakeTimeoutSeconds,
+		Socks5HandshakeReadTimeoutSeconds:  getEnvInt("SOCKS5_HANDSHAKE_READ_TIMEOUT_SECONDS", socks5HandshakeTimeoutSeconds),
+		Socks5HandshakeWriteTimeoutSeconds: getEnvInt("SOCKS5_HANDSHAKE_WRITE_TIMEOUT_SECONDS", socks5HandshakeTimeoutSeconds),
+		SessionIdleTimeoutHours:            sessionIdleTimeoutHours,
+		TransferReadTimeoutSeconds:         getEnvInt("TRANSFER_READ_TIMEOUT_SECONDS", transferTimeoutSeconds),
+		TransferWriteTimeoutSeconds:        getEnvInt("TRANSFER_WRITE_TIMEOUT_SECONDS", transferTimeoutSeconds),
+		SSHConnectMaxRetries:               getEnvInt("SSH_CONNECT_MAX_RETRIES", 3),
+		SSHConnectRetryDelaySeconds:        getEnvInt("SSH_CONNECT_RETRY_DELAY_SECONDS", 2),
 
 		HTTPGzipDecodeMaxBytes:     getEnvInt("HTTP_GZIP_DECODE_MAX_BYTES", 1048576),
 		HTTPGzipDecodeTimeoutMS:    getEnvInt("HTTP_GZIP_DECODE_TIMEOUT_MS", 500),
@@ -135,7 +147,11 @@ func ParseFlags() {
 		fmt.Fprintln(out, "  GOROUTINE_MONITOR_INTERVAL_SECONDS Interval seconds for goroutine monitor (default 30)")
 		fmt.Fprintln(out, "  GOROUTINE_WARN_THRESHOLD         Goroutine count warning threshold (default 1000)")
 		fmt.Fprintln(out, "  SOCKS5_HANDSHAKE_TIMEOUT_SECONDS SOCKS5 handshake timeout in seconds (default 30)")
+		fmt.Fprintln(out, "  SOCKS5_HANDSHAKE_READ_TIMEOUT_SECONDS  SOCKS5 handshake read timeout in seconds (default 30)")
+		fmt.Fprintln(out, "  SOCKS5_HANDSHAKE_WRITE_TIMEOUT_SECONDS SOCKS5 handshake write timeout in seconds (default 30)")
 		fmt.Fprintln(out, "  SESSION_IDLE_TIMEOUT_HOURS       Session idle timeout in hours (default 24)")
+		fmt.Fprintln(out, "  TRANSFER_READ_TIMEOUT_SECONDS    Data transfer read timeout in seconds (default 86400)")
+		fmt.Fprintln(out, "  TRANSFER_WRITE_TIMEOUT_SECONDS   Data transfer write timeout in seconds (default 86400)")
 		fmt.Fprintln(out, "  SSH_CONNECT_MAX_RETRIES          Max SSH connect retries per hop (default 3)")
 		fmt.Fprintln(out, "  SSH_CONNECT_RETRY_DELAY_SECONDS  Delay between SSH connect retries in seconds (default 2)")
 		fmt.Fprintln(out, "  SSH_POOL_MAX_CONNS              Maximum pooled SSH connections (default 64)")
@@ -170,6 +186,10 @@ func ParseFlags() {
 
 	maxSessionConns := flag.Int("max-session-connections", Settings.MaxSessionConnections, "Maximum concurrent connections per mapping session")
 	maxHTTPLogs := flag.Int("max-http-logs", Settings.MaxHTTPLogs, "Maximum number of HTTP logs kept in memory")
+	socks5HandshakeReadTimeout := flag.Int("socks5-handshake-read-timeout-seconds", Settings.Socks5HandshakeReadTimeoutSeconds, "SOCKS5 handshake read timeout in seconds (overrides SOCKS5_HANDSHAKE_READ_TIMEOUT_SECONDS)")
+	socks5HandshakeWriteTimeout := flag.Int("socks5-handshake-write-timeout-seconds", Settings.Socks5HandshakeWriteTimeoutSeconds, "SOCKS5 handshake write timeout in seconds (overrides SOCKS5_HANDSHAKE_WRITE_TIMEOUT_SECONDS)")
+	transferReadTimeout := flag.Int("transfer-read-timeout-seconds", Settings.TransferReadTimeoutSeconds, "Data transfer read timeout in seconds (overrides TRANSFER_READ_TIMEOUT_SECONDS)")
+	transferWriteTimeout := flag.Int("transfer-write-timeout-seconds", Settings.TransferWriteTimeoutSeconds, "Data transfer write timeout in seconds (overrides TRANSFER_WRITE_TIMEOUT_SECONDS)")
 
 	showHelp := flag.Bool("help", false, "Show help and exit")
 	showVersion := flag.Bool("version", false, "Show version and exit")
@@ -208,6 +228,10 @@ func ParseFlags() {
 	Settings.CLIServer = *cliServer
 	Settings.MaxSessionConnections = *maxSessionConns
 	Settings.MaxHTTPLogs = *maxHTTPLogs
+	Settings.Socks5HandshakeReadTimeoutSeconds = *socks5HandshakeReadTimeout
+	Settings.Socks5HandshakeWriteTimeoutSeconds = *socks5HandshakeWriteTimeout
+	Settings.TransferReadTimeoutSeconds = *transferReadTimeout
+	Settings.TransferWriteTimeoutSeconds = *transferWriteTimeout
 }
 
 func getEnv(key, defaultValue string) string {

@@ -96,8 +96,12 @@ Environment variables (overridden by flags where available):
 - `HTTP_GZIP_DECODE_CACHE_SECONDS` (default `60`): sliding cache TTL for decoded previews (0 disables cache).
 - `GOROUTINE_MONITOR_INTERVAL_SECONDS` (default `30`): goroutine monitor interval.
 - `GOROUTINE_WARN_THRESHOLD` (default `1000`): goroutine warning threshold.
-- `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS` (default `30`): SOCKS5 handshake timeout.
+- `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS` (default `30`): legacy SOCKS5 handshake timeout (kept for compatibility).
+- `SOCKS5_HANDSHAKE_READ_TIMEOUT_SECONDS` (default `30`): SOCKS5 handshake read timeout (per read).
+- `SOCKS5_HANDSHAKE_WRITE_TIMEOUT_SECONDS` (default `30`): SOCKS5 handshake write timeout (per write).
 - `SESSION_IDLE_TIMEOUT_HOURS` (default `24`): idle timeout for sessions.
+- `TRANSFER_READ_TIMEOUT_SECONDS` (default `86400`): data transfer read timeout (per read).
+- `TRANSFER_WRITE_TIMEOUT_SECONDS` (default `86400`): data transfer write timeout (per write).
 - `SSH_CONNECT_TIMEOUT` (default `15`): SSH dial timeout.
 - `SSH_KEEPALIVE_INTERVAL` (default `30`): SSH keepalive interval.
 - `SSH_CONNECT_MAX_RETRIES` (default `3`): retries per SSH hop.
@@ -119,6 +123,7 @@ Key flags (see `./bastion --help` for full list):
 - `--server` target server URL for CLI mode.
 - `--max-session-connections` per-mapping connection cap.
 - `--max-http-logs` in-memory HTTP log cap.
+- `--socks5-handshake-read-timeout-seconds`, `--socks5-handshake-write-timeout-seconds`, `--transfer-read-timeout-seconds`, `--transfer-write-timeout-seconds` fine-grained stage read/write timeouts.
 - `--ssh-pool-max-conns`, `--ssh-pool-idle-timeout-seconds`, `--ssh-pool-keepalive-interval-seconds`, `--ssh-pool-keepalive-timeout-ms` SSH pool lifecycle settings.
 - `--version` show build/version info and exit.
 
@@ -238,8 +243,12 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `HTTP_GZIP_DECODE_CACHE_SECONDS`（默认 `60`）：解压预览的短缓存 TTL（滑动过期；0 表示禁用缓存）。
 - `GOROUTINE_MONITOR_INTERVAL_SECONDS`（默认 `30`）：goroutine 监控间隔。
 - `GOROUTINE_WARN_THRESHOLD`（默认 `1000`）：goroutine 警告阈值。
-- `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS`（默认 `30`）：SOCKS5 握手超时。
+- `SOCKS5_HANDSHAKE_TIMEOUT_SECONDS`（默认 `30`）：旧的 SOCKS5 握手超时（为兼容保留）。
+- `SOCKS5_HANDSHAKE_READ_TIMEOUT_SECONDS`（默认 `30`）：SOCKS5 握手读超时（每次 Read 续期）。
+- `SOCKS5_HANDSHAKE_WRITE_TIMEOUT_SECONDS`（默认 `30`）：SOCKS5 握手写超时（每次 Write 续期）。
 - `SESSION_IDLE_TIMEOUT_HOURS`（默认 `24`）：会话空闲超时（小时）。
+- `TRANSFER_READ_TIMEOUT_SECONDS`（默认 `86400`）：数据转发读超时（每次 Read 续期）。
+- `TRANSFER_WRITE_TIMEOUT_SECONDS`（默认 `86400`）：数据转发写超时（每次 Write 续期）。
 - `SSH_CONNECT_TIMEOUT`（默认 `15`）：SSH 连接超时。
 - `SSH_KEEPALIVE_INTERVAL`（默认 `30`）：SSH keepalive 间隔。
 - `SSH_CONNECT_MAX_RETRIES`（默认 `3`）：SSH 每跳重试次数。
@@ -260,6 +269,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `--server`：CLI 模式下的目标服务器地址。
 - `--max-session-connections`：单映射最大连接数。
 - `--max-http-logs`：HTTP 日志内存上限。
+- `--socks5-handshake-read-timeout-seconds` / `--socks5-handshake-write-timeout-seconds` / `--transfer-read-timeout-seconds` / `--transfer-write-timeout-seconds`：分阶段读写超时配置。
 - `--ssh-pool-max-conns` / `--ssh-pool-idle-timeout-seconds` / `--ssh-pool-keepalive-interval-seconds` / `--ssh-pool-keepalive-timeout-ms`：SSH 连接池生命周期设置。
 - `--version`：输出版本/构建信息后退出。
 

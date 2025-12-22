@@ -281,10 +281,9 @@ func (s *TunnelSession) handleTCPClient(clientConn net.Conn) {
 	remoteTarget := net.JoinHostPort(s.Mapping.RemoteHost, strconv.Itoa(s.Mapping.RemotePort))
 	connID := fmt.Sprintf("%s->%s", clientAddr, remoteTarget)
 
-	// Set idle timeout to avoid resource hogging
-	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("[TCP] Failed to set deadline for client: %v", err)
-	}
+	transferReadTimeout := time.Duration(config.Settings.TransferReadTimeoutSeconds) * time.Second
+	transferWriteTimeout := time.Duration(config.Settings.TransferWriteTimeoutSeconds) * time.Second
+	clientConnWithTimeout := NewDeadlineConn(clientConn, transferReadTimeout, transferWriteTimeout)
 
 	// Detailed logging: record connection source
 	if config.Settings.LogLevel == "DEBUG" {
@@ -316,13 +315,10 @@ func (s *TunnelSession) handleTCPClient(clientConn net.Conn) {
 	}
 	defer remoteConn.Close()
 
-	// Set remote timeout
-	if err := remoteConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("Failed to set remote deadline: %v", err)
-	}
+	remoteConnWithTimeout := NewDeadlineConn(remoteConn, transferReadTimeout, transferWriteTimeout)
 
 	// Bidirectional forwarding
-	s.pipe(clientConn, remoteConn, connID)
+	s.pipe(clientConnWithTimeout, remoteConnWithTimeout, connID)
 }
 
 // handleSocks5Client processes a SOCKS5 client connection
@@ -336,18 +332,18 @@ func (s *Socks5Session) handleSocks5Client(clientConn net.Conn) {
 	clientAddr := clientConn.RemoteAddr().String()
 	localAddr := clientConn.LocalAddr().String()
 
-	// Set handshake timeout
-	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.Socks5HandshakeTimeoutSeconds) * time.Second)); err != nil {
-		log.Printf("[SOCKS5] Failed to set handshake deadline: %v", err)
-		return
-	}
+	handshakeReadTimeout := time.Duration(config.Settings.Socks5HandshakeReadTimeoutSeconds) * time.Second
+	handshakeWriteTimeout := time.Duration(config.Settings.Socks5HandshakeWriteTimeoutSeconds) * time.Second
+	transferReadTimeout := time.Duration(config.Settings.TransferReadTimeoutSeconds) * time.Second
+	transferWriteTimeout := time.Duration(config.Settings.TransferWriteTimeoutSeconds) * time.Second
+	clientConnWithTimeout := NewDeadlineConn(clientConn, handshakeReadTimeout, handshakeWriteTimeout)
 
 	// SOCKS5 handshake
 	handshake := &Socks5Handshake{}
-	targetHost, targetPort, err := handshake.Handshake(clientConn)
+	targetHost, targetPort, err := handshake.Handshake(clientConnWithTimeout)
 	if err != nil {
 		log.Printf("[SOCKS5] Handshake failed from client %s: %v", clientAddr, err)
-		if err := handshake.SendReply(clientConn, false); err != nil {
+		if err := handshake.SendReply(clientConnWithTimeout, false); err != nil {
 			log.Printf("[SOCKS5] Failed to send failure reply: %v", err)
 		}
 		return
@@ -360,12 +356,6 @@ func (s *Socks5Session) handleSocks5Client(clientConn net.Conn) {
 	if config.Settings.LogLevel == "DEBUG" {
 		log.Printf("[SOCKS5] New connection: client=%s, local=%s, target=%s",
 			clientAddr, localAddr, remoteTarget)
-	}
-
-	// Reset timeout for long-lived session
-	if err := clientConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("[SOCKS5] Failed to reset deadline: %v", err)
-		return
 	}
 
 	remoteAddr := remoteTarget
@@ -397,19 +387,17 @@ func (s *Socks5Session) handleSocks5Client(clientConn net.Conn) {
 	}
 	defer remoteConn.Close()
 
-	// Set remote timeout
-	if err := remoteConn.SetDeadline(time.Now().Add(time.Duration(config.Settings.SessionIdleTimeoutHours) * time.Hour)); err != nil {
-		log.Printf("Failed to set remote deadline: %v", err)
-	}
+	remoteConnWithTimeout := NewDeadlineConn(remoteConn, transferReadTimeout, transferWriteTimeout)
 
 	// Send success reply
-	if err := handshake.SendReply(clientConn, true); err != nil {
+	if err := handshake.SendReply(clientConnWithTimeout, true); err != nil {
 		log.Printf("Failed to send SOCKS5 reply: %v", err)
 		return
 	}
 
 	// Bidirectional forwarding
-	s.pipe(clientConn, remoteConn, connID)
+	clientConnWithTimeout.SetTimeouts(transferReadTimeout, transferWriteTimeout)
+	s.pipe(clientConnWithTimeout, remoteConnWithTimeout, connID)
 }
 
 // pipe handles bidirectional data forwarding
@@ -464,9 +452,9 @@ func (s *BaseSession) copyData(dst, src net.Conn, direction, connID string) {
 		if r := recover(); r != nil {
 			log.Printf("Recovered from panic in copyData [%s]: %v", direction, r)
 		}
-		if tcpConn, ok := dst.(*net.TCPConn); ok {
-			if err := tcpConn.CloseWrite(); err != nil {
-				log.Printf("Failed to close write end of TCP connection: %v", err)
+		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
+			if err := cw.CloseWrite(); err != nil && config.Settings.LogLevel == "DEBUG" {
+				log.Printf("Failed to close write end of connection: %v", err)
 			}
 		}
 	}()
