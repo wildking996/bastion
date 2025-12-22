@@ -284,14 +284,10 @@ func (s *HTTPProxySession) pipeRaw(clientConn net.Conn, clientReader *bufio.Read
 }
 
 func (s *HTTPProxySession) copyRaw(dst net.Conn, src io.Reader, direction, connID string) {
-	bufAny := bufferPool.Get()
-	bufPtr, ok := bufAny.(*[]byte)
-	if !ok || bufPtr == nil {
-		buf := make([]byte, config.Settings.ForwardBufferSize)
-		bufPtr = &buf
-	}
+	pool := getForwardBufferPool()
+	bufPtr := pool.Get(pool.InitialSize())
 	buf := *bufPtr
-	defer bufferPool.Put(bufPtr)
+	defer pool.Put(bufPtr)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -318,6 +314,14 @@ func (s *HTTPProxySession) copyRaw(dst net.Conn, src io.Reader, direction, connI
 					return
 				}
 				written += w
+			}
+
+			if n == len(buf) {
+				if next, ok := pool.NextSize(len(buf)); ok && next > len(buf) {
+					pool.Put(bufPtr)
+					bufPtr = pool.Get(next)
+					buf = *bufPtr
+				}
 			}
 		}
 		if err != nil {
