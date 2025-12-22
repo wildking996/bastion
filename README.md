@@ -15,6 +15,7 @@ Bastion is a secure SSH bastion host with local/dynamic forwarding, HTTP auditin
 - HTTP traffic auditing with in-memory logs
 - HTTP forward proxy supports WebSocket Upgrade (frames are tunneled; audit covers the initial HTTP handshake only)
 - Real-time traffic chart in the Web UI (polls `/api/stats`)
+- Self-update from the Web UI (tracks GitHub "Latest Release")
 - Web-based management interface served from `/web`
 - CLI client mode to control a running server (`--cli --server <url>`)
 - Multi-platform builds (Windows, Linux, macOS; GUI and console variants on Windows)
@@ -105,6 +106,7 @@ Environment variables (overridden by flags where available):
 - `SSH_POOL_IDLE_TIMEOUT_SECONDS` (default `900`): close pooled SSH connections idle for this duration.
 - `SSH_POOL_KEEPALIVE_INTERVAL_SECONDS` (default `30`): interval for pooled SSH keepalive probes (0 disables).
 - `SSH_POOL_KEEPALIVE_TIMEOUT_MS` (default `500`): timeout for a single pooled SSH keepalive probe.
+- `GITHUB_TOKEN` (optional): GitHub token used by the self-update feature to increase GitHub API rate limits (recommended when running behind shared IP / CI / proxy).
 - CLI-only: `CLI_MODE` (`false`) to force CLI client mode; use `--server` flag for target URL.
 
 Key flags (see `./bastion --help` for full list):
@@ -131,6 +133,7 @@ Key flags (see `./bastion --help` for full list):
   - On-demand gzip decode: `GET /api/http-logs/:id?part=response_body&decode=gzip`
 - Error logs: `GET /api/error-logs`, `DELETE /api/error-logs`
 - Shutdown (confirmation code): `POST /api/shutdown/generate-code`, `POST /api/shutdown/verify`
+- Self-update: `GET /api/update/check`, `GET /api/update/proxy`, `POST /api/update/proxy`, `POST /api/update/generate-code`, `POST /api/update/apply` (requires the confirmation code; downloads the matching asset from GitHub "Latest Release" and restarts)
 - Health/metrics: `GET /api/health`, `GET /api/metrics`
 - Prometheus: `GET /metrics`
 
@@ -190,6 +193,7 @@ Bastion 是一个安全的 SSH 跳板机，支持本地/动态转发、HTTP 审�
 - HTTP 流量审计与内存日志
 - HTTP 正向代理支持 WebSocket Upgrade（升级后按原始 TCP 转发；审计仅覆盖升级前的 HTTP 握手）
 - `/web` 提供的 Web 管理界面
+- Web UI 一键自更新（跟随 GitHub Latest Release）
 - CLI 模式远程控制运行中的服务（`--cli --server <url>`）
 - 跨平台构建（Windows/Linux/macOS，Windows 同时提供 GUI 与控制台版本）
 
