@@ -258,6 +258,13 @@ func runSelfUpdateHelper(args []string) {
 	restart := false
 	var restartArgs []string
 
+	defer func() {
+		if r := recover(); r != nil {
+			appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: panic: %v", r))
+			log.Printf("update-helper: panic: %v", r)
+		}
+	}()
+
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--target":
@@ -293,7 +300,11 @@ func runSelfUpdateHelper(args []string) {
 		}
 	}
 
+	appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: argv=%v", os.Args))
+	appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: parsed target=%q source=%q cleanup=%q parent_pid=%d restart=%v", target, source, cleanup, parentPID, restart))
+
 	if target == "" || source == "" {
+		appendHelperLogLine(helperLog, "update-helper: missing --target/--source, exiting")
 		log.Printf("update-helper: missing --target/--source, exiting")
 		return
 	}
@@ -303,10 +314,13 @@ func runSelfUpdateHelper(args []string) {
 		defer closeLog()
 	}
 
+	appendHelperLogLine(helperLog, "update-helper: logging initialized")
+
 	log.Printf(
 		"update-helper: start target=%s source=%s cleanup=%s restart=%v",
 		target, source, cleanup, restart,
 	)
+	appendHelperLogLine(helperLog, "update-helper: start")
 
 	// Retry replacement for up to 5 minutes (needed on Windows where the binary is locked while running).
 	deadline := time.Now().Add(5 * time.Minute)
@@ -314,13 +328,16 @@ func runSelfUpdateHelper(args []string) {
 	for {
 		if err := applyExecutableUpdate(target, source); err == nil {
 			log.Printf("update-helper: replaced successfully")
+			appendHelperLogLine(helperLog, "update-helper: replaced successfully")
 			break
 		} else if time.Since(lastLog) > 2*time.Second {
 			log.Printf("update-helper: replace failed (will retry): %v", err)
+			appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: replace failed (will retry): %v", err))
 			lastLog = time.Now()
 		}
 		if time.Now().After(deadline) {
 			log.Printf("update-helper: replace deadline reached, exiting")
+			appendHelperLogLine(helperLog, "update-helper: replace deadline reached, exiting")
 			return
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -328,29 +345,36 @@ func runSelfUpdateHelper(args []string) {
 
 	if cleanup != "" {
 		log.Printf("update-helper: cleaning up %s", cleanup)
+		appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: cleaning up %s", cleanup))
 		_ = os.RemoveAll(cleanup)
 	}
 
 	if restart {
+		appendHelperLogLine(helperLog, "update-helper: waiting parent to exit")
 		waitForParentExit(parentPID, 30*time.Second)
+		appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: restarting %s args=%v", target, restartArgs))
 		log.Printf("update-helper: restarting %s args=%v", target, restartArgs)
 		cmd := exec.Command(target, restartArgs...)
 		cmd.Dir = filepath.Dir(target)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
+			appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: restart failed: %v", err))
 			log.Printf("update-helper: restart failed: %v", err)
 			return
 		}
 		log.Printf("update-helper: restart started (pid=%d)", cmd.Process.Pid)
+		appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: restart started (pid=%d)", cmd.Process.Pid))
 
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
 		select {
 		case err := <-done:
 			log.Printf("update-helper: restart process exited early: %v", err)
+			appendHelperLogLine(helperLog, fmt.Sprintf("update-helper: restart process exited early: %v", err))
 		case <-time.After(3 * time.Second):
 			log.Printf("update-helper: restart process still running after 3s")
+			appendHelperLogLine(helperLog, "update-helper: restart process still running after 3s")
 		}
 	}
 }
@@ -424,6 +448,20 @@ func parseInt(raw string) int {
 		n = n*10 + int(ch-'0')
 	}
 	return n
+}
+
+func appendHelperLogLine(path, msg string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	line := fmt.Sprintf("%s %s\n", time.Now().Format("2006/01/02 15:04:05.000"), msg)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString(line)
+	_ = f.Close()
 }
 
 // findAvailablePort searches for an available port

@@ -342,9 +342,11 @@ func ApplyUpdate(c *gin.Context) {
 	cmd := exec.Command(exePath, helperArgs...)
 	if f, err := os.OpenFile(helperLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 		// Even if the helper fails to open its own log file, its stderr/stdout will still be captured here.
+		//
+		// Note: do not close `f` here. The parent process exits shortly after starting the helper, and closing
+		// the writer early would stop the stdout/stderr tee goroutines from writing.
 		cmd.Stdout = io.MultiWriter(os.Stdout, f)
 		cmd.Stderr = io.MultiWriter(os.Stderr, f)
-		defer func() { _ = f.Close() }()
 	} else {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
