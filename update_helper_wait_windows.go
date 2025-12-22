@@ -22,7 +22,11 @@ func waitForParentExit(pid int, timeout time.Duration) {
 		// If we can't open the process handle, assume it's already gone.
 		return
 	}
-	defer syscall.CloseHandle(h)
+	defer func() {
+		if err := syscall.CloseHandle(h); err != nil {
+			log.Printf("update-helper: close parent handle failed: %v", err)
+		}
+	}()
 
 	log.Printf("update-helper: waiting parent pid %d to exit (timeout=%s)", pid, timeout)
 	status, err := syscall.WaitForSingleObject(h, ms)
