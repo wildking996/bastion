@@ -1,0 +1,63 @@
+project_name: bastion
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: bastion
+    binary: bastion
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X bastion/version.Version={{ .Version }}
+      - -X bastion/version.CommitHash={{ .ShortCommit }}
+      - -X bastion/version.BuildTime={{ .Date }}
+
+  - id: bastion-windows
+    binary: bastion
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -H windowsgui
+      - -X bastion/version.Version={{ .Version }}
+      - -X bastion/version.CommitHash={{ .ShortCommit }}
+      - -X bastion/version.BuildTime={{ .Date }}
+
+archives:
+  - name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  disable: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^refactor:"
+      - "^style:"
+
