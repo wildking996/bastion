@@ -340,8 +340,16 @@ func ApplyUpdate(c *gin.Context) {
 	helperArgs = append(helperArgs, os.Args[1:]...)
 
 	cmd := exec.Command(exePath, helperArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if f, err := os.OpenFile(helperLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+		// Even if the helper fails to open its own log file, its stderr/stdout will still be captured here.
+		cmd.Stdout = io.MultiWriter(os.Stdout, f)
+		cmd.Stderr = io.MultiWriter(os.Stderr, f)
+		defer func() { _ = f.Close() }()
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		log.Printf("update: apply open helper log file for stdout/stderr failed (path=%s): %v", helperLogPath, err)
+	}
 	if err := cmd.Start(); err != nil {
 		log.Printf("update: apply start helper failed: %v", err)
 		_ = os.RemoveAll(tmpDir)
