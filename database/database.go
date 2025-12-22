@@ -71,7 +71,7 @@ func InitDB() error {
 	}
 
 	// Auto-migrate database tables
-	err = DB.AutoMigrate(&models.Bastion{}, &models.Mapping{})
+	err = DB.AutoMigrate(&models.Bastion{}, &models.Mapping{}, &models.AppSetting{})
 	if err != nil {
 		return err
 	}
