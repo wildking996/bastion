@@ -196,6 +196,16 @@ const i18nConfig = {
     updateHelperLog: "更新日志文件",
     updateStarted: "已开始更新，正在重启...",
     updateFailed: "更新失败",
+
+    // Navigation
+    navManage: "管理",
+    navLogs: "日志",
+    navSystem: "系统",
+    navBastions: "跳板机",
+    navMappings: "映射",
+    navHTTPLogs: "HTTP 日志",
+    navErrorLogs: "错误日志",
+    navUpdate: "更新与版本",
   },
 
   en: {
@@ -395,6 +405,16 @@ const i18nConfig = {
     updateHelperLog: "Update helper log",
     updateStarted: "Update started, restarting...",
     updateFailed: "Update failed",
+
+    // Navigation
+    navManage: "Manage",
+    navLogs: "Logs",
+    navSystem: "System",
+    navBastions: "Bastions",
+    navMappings: "Mappings",
+    navHTTPLogs: "HTTP Logs",
+    navErrorLogs: "Error Logs",
+    navUpdate: "Update & Version",
   },
 };
 
