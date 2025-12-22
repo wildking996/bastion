@@ -117,7 +117,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin "$NEW_TAG"
 
-      - name: Trigger release workflow
+      - name: Trigger GoReleaser workflow
         if: steps.semver.outputs.should_release == 'true'
         shell: bash
         env:
@@ -126,4 +126,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Tag ${NEW_TAG} pushed. GoReleaser workflow will run on tag push."
+          # GitHub may suppress workflows triggered by pushes originating from other workflows (even for tags).
+          # Dispatch GoReleaser explicitly so a GitHub Release is always created for NEW_TAG.
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/goreleaser.yml/dispatches" \
+            -d "{\"ref\":\"main\",\"inputs\":{\"tag\":\"${NEW_TAG}\"}}"
