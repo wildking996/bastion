@@ -262,7 +262,9 @@ const app = createApp({
 
                 <el-tooltip :content="t.shutdown" placement="bottom">
                   <template #reference>
-                    <el-button icon="SwitchButton" circle type="danger" @click="openShutdownConfirm"></el-button>
+                    <el-button circle type="danger" @click="openShutdownConfirm" aria-label="shutdown">
+                      <el-icon><SwitchButton /></el-icon>
+                    </el-button>
                   </template>
                 </el-tooltip>
               </el-space>
