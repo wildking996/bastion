@@ -82,8 +82,29 @@ const app = createApp({
       "/logs/errors": "Warning",
       "/system/update": "Setting",
     };
-
     const refreshPage = () => window.location.reload();
+    const onTopMenuSelect = (index) => {
+      if (index === "toggle") {
+        toggleSidebar();
+        return;
+      }
+      if (index === "refresh") {
+        refreshPage();
+        return;
+      }
+      if (index === "shutdown") {
+        openShutdownConfirm();
+        return;
+      }
+      if (index === "lang:zh") {
+        switchLanguage("zh");
+        return;
+      }
+      if (index === "lang:en") {
+        switchLanguage("en");
+        return;
+      }
+    };
 
     const switchLanguage = (lang) => {
       if (!lang || lang === currentLang.value) return;
@@ -220,6 +241,7 @@ const app = createApp({
       menuRef,
       onSelectMenu,
       refreshPage,
+      onTopMenuSelect,
       switchLanguage,
       toggleSidebar,
       openShutdownConfirm,
@@ -241,53 +263,54 @@ const app = createApp({
   template: `
     <el-config-provider :locale="elLocale">
       <el-container class="app-shell">
-                <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
-          <div style="height:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div style="min-width:0;display:flex;align-items:center;gap:10px;">
-              <el-button :icon="collapsed ? 'Expand' : 'Fold'" circle @click="toggleSidebar"></el-button>
-              <div style="min-width:0;">
+                  <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
+          <el-menu
+            mode="horizontal"
+            :ellipsis="false"
+            class="top-menu"
+            @select="onTopMenuSelect"
+          >
+            <el-menu-item index="toggle">
+              <el-icon>
+                <component :is="collapsed ? 'Expand' : 'Fold'" />
+              </el-icon>
+            </el-menu-item>
+
+            <el-menu-item index="brand" disabled class="top-menu-brand">
+              <div class="top-brand">
                 <el-text size="large" tag="b">{{ t.console }}</el-text>
-                <el-breadcrumb separator="/" style="margin-top:2px;">
+                <el-breadcrumb separator="/" class="top-breadcrumb">
                   <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
                 </el-breadcrumb>
               </div>
-            </div>
+            </el-menu-item>
 
-            <div style="display:flex;align-items:center;flex:0 0 auto;">
-              <el-space :size="10" alignment="center">
-                <el-tooltip :content="t.refresh" placement="bottom">
-                  <template #reference>
-                    <el-button circle @click="refreshPage" aria-label="refresh">
-                      <el-icon><Refresh /></el-icon>
-                    </el-button>
-                  </template>
-                </el-tooltip>
+            <el-menu-item index="refresh">
+              <el-tooltip :content="t.refresh" placement="bottom">
+                <template #reference>
+                  <el-icon><Refresh /></el-icon>
+                </template>
+              </el-tooltip>
+            </el-menu-item>
 
-                <el-tooltip :content="t.shutdown" placement="bottom">
-                  <template #reference>
-                    <el-button circle type="danger" @click="openShutdownConfirm" aria-label="shutdown">
-                      <el-icon><SwitchButton /></el-icon>
-                    </el-button>
-                  </template>
-                </el-tooltip>
+            <el-menu-item index="shutdown">
+              <el-tooltip :content="t.shutdown" placement="bottom">
+                <template #reference>
+                  <el-icon><SwitchButton /></el-icon>
+                </template>
+              </el-tooltip>
+            </el-menu-item>
 
-                <el-divider direction="vertical" />
-
-                <el-dropdown @command="switchLanguage">
-                  <el-button circle aria-label="language">
-                    <el-icon><ChatLineRound /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="zh" :disabled="currentLang === 'zh'">中文</el-dropdown-item>
-                      <el-dropdown-item command="en" :disabled="currentLang === 'en'">English</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </el-space>
-            </div>
-          </div>
+            <el-sub-menu index="lang">
+              <template #title>
+                <el-icon><ChatLineRound /></el-icon>
+              </template>
+              <el-menu-item index="lang:zh" :disabled="currentLang === 'zh'">中文</el-menu-item>
+              <el-menu-item index="lang:en" :disabled="currentLang === 'en'">English</el-menu-item>
+            </el-sub-menu>
+          </el-menu>
         </el-header>
+
 
 
         <el-container class="app-body">
@@ -303,7 +326,7 @@ const app = createApp({
             >
               <el-menu-item index="/home">
                 <el-icon><House /></el-icon>
-                <span>{{ t.navHome }}</span>
+                <span>{{ t.navHomeUpdates }}</span>
               </el-menu-item>
 
               <el-sub-menu v-for="g in visibleGroups" :key="g.key" :index="g.key">
