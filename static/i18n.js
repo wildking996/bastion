@@ -184,7 +184,7 @@ const i18nConfig = {
 
     // Update feature
     update: "更新",
-    updateDialogTitle: "更新与版本管理",
+    updateDialogTitle: "系统操作",
     checkUpdate: "检查更新",
     applyUpdate: "立即更新",
     currentVersion: "当前版本",
@@ -203,6 +203,7 @@ const i18nConfig = {
     updateHelperLog: "更新日志文件",
     updateStarted: "已开始更新，正在重启...",
     updateFailed: "更新失败",
+    updateNotChecked: "尚未检查更新，请点击“检查更新”",
 
     // Navigation
     navManage: "管理",
@@ -212,7 +213,7 @@ const i18nConfig = {
     navMappings: "映射",
     navHTTPLogs: "HTTP 日志",
     navErrorLogs: "错误日志",
-    navUpdate: "更新与版本",
+    navUpdate: "系统操作",
   },
 
   en: {
@@ -400,7 +401,7 @@ const i18nConfig = {
 
     // Update feature
     update: "Update",
-    updateDialogTitle: "Update & Version",
+    updateDialogTitle: "System Actions",
     checkUpdate: "Check Update",
     applyUpdate: "Update Now",
     currentVersion: "Current Version",
@@ -419,6 +420,7 @@ const i18nConfig = {
     updateHelperLog: "Update helper log",
     updateStarted: "Update started, restarting...",
     updateFailed: "Update failed",
+    updateNotChecked: "Update not checked yet. Click Check Update.",
 
     // Navigation
     navManage: "Manage",
@@ -428,7 +430,7 @@ const i18nConfig = {
     navMappings: "Mappings",
     navHTTPLogs: "HTTP Logs",
     navErrorLogs: "Error Logs",
-    navUpdate: "Update & Version",
+    navUpdate: "System Actions",
   },
 };
 

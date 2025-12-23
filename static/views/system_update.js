@@ -1,14 +1,19 @@
 import { apiJSON } from "../app/api.js";
 
-const { ref, inject, computed, onMounted, onDeactivated } = Vue;
+const { ref, inject, computed, onMounted, onUnmounted } = Vue;
 
-function useConfirmCodeFlow({ t, ElMessage, onGenerate, onApply }) {
+function useConfirmCodeDialog({ t, ElMessage }) {
+  const visible = ref(false);
+  const kind = ref(""); // 'update' | 'shutdown'
+
   const code = ref("");
   const expiresAt = ref(0);
   const expiryText = ref("");
   const input = ref("");
+
   const generating = ref(false);
   const applying = ref(false);
+
   let timer = null;
 
   const stopTimer = () => {
@@ -22,6 +27,8 @@ function useConfirmCodeFlow({ t, ElMessage, onGenerate, onApply }) {
     expiresAt.value = 0;
     expiryText.value = "";
     input.value = "";
+    generating.value = false;
+    applying.value = false;
     stopTimer();
   };
 
@@ -54,13 +61,49 @@ function useConfirmCodeFlow({ t, ElMessage, onGenerate, onApply }) {
     );
   });
 
-  const generate = async () => {
+  const open = (nextKind) => {
+    kind.value = nextKind;
+    reset();
+    visible.value = true;
+  };
+
+  const close = () => {
+    visible.value = false;
+    reset();
+  };
+
+  const title = computed(() => {
+    if (kind.value === "update") return t.value.update;
+    if (kind.value === "shutdown") return t.value.shutdown;
+    return t.value.confirm;
+  });
+
+  const alertTitle = computed(() => {
+    if (kind.value === "update") return t.value.updateConfirm;
+    if (kind.value === "shutdown") return t.value.shutdownConfirm;
+    return "";
+  });
+
+  const actionLabel = computed(() => {
+    if (kind.value === "update") return t.value.applyUpdate;
+    if (kind.value === "shutdown") return t.value.shutdownSystem;
+    return t.value.confirm;
+  });
+
+  const actionType = computed(() => {
+    if (kind.value === "update") return "warning";
+    if (kind.value === "shutdown") return "danger";
+    return "primary";
+  });
+
+  const generate = async ({ onGenerate }) => {
     generating.value = true;
     try {
       const data = await onGenerate();
       code.value = data.code || "";
       input.value = "";
       startCountdown(Number(data.expires_at || 0));
+      ElMessage.success(t.value.codeGenerated);
     } catch (e) {
       ElMessage.error(e.message);
     } finally {
@@ -68,7 +111,7 @@ function useConfirmCodeFlow({ t, ElMessage, onGenerate, onApply }) {
     }
   };
 
-  const apply = async () => {
+  const apply = async ({ onApply }) => {
     if (!canApply.value) return;
     applying.value = true;
     try {
@@ -80,18 +123,25 @@ function useConfirmCodeFlow({ t, ElMessage, onGenerate, onApply }) {
     }
   };
 
-  onDeactivated(() => {
+  onUnmounted(() => {
     stopTimer();
   });
 
   return {
+    visible,
+    kind,
+    title,
+    alertTitle,
+    actionLabel,
+    actionType,
     code,
     expiryText,
     input,
     generating,
     applying,
     canApply,
-    reset,
+    open,
+    close,
     generate,
     apply,
   };
@@ -103,7 +153,8 @@ export default {
     const t = inject("t");
     const ElMessage = ElementPlus.ElMessage;
 
-    // Update
+    const checked = ref(false);
+
     const updateInfo = ref({});
     const updateChecking = ref(false);
 
@@ -114,13 +165,20 @@ export default {
 
     const updateHelperLogPath = ref("");
 
+    const confirmDlg = useConfirmCodeDialog({ t, ElMessage });
+
+    const updateAvailable = computed(
+      () => updateInfo.value && updateInfo.value.update_available === true
+    );
+
     const checkForUpdate = async () => {
       updateChecking.value = true;
       try {
         const data = await apiJSON("/update/check", "GET");
         updateInfo.value = data || {};
+        checked.value = true;
         if (updateInfo.value.update_available !== true) {
-          updateCodeFlow.reset();
+          updateHelperLogPath.value = "";
         }
       } catch (e) {
         ElMessage.error(`${t.value.updateFailed}: ${e.message}`);
@@ -170,46 +228,51 @@ export default {
       }
     };
 
-    const updateCodeFlow = useConfirmCodeFlow({
-      t,
-      ElMessage,
-      onGenerate: async () => {
-        const data = await apiJSON("/update/generate-code", "POST", {});
-        ElMessage.success(t.value.codeGenerated);
-        return data;
-      },
-      onApply: async ({ code }) => {
+    const openUpdateConfirm = () => {
+      if (!checked.value) {
+        ElMessage.warning(t.value.updateNotChecked);
+        return;
+      }
+      if (!updateAvailable.value) {
+        ElMessage.info(t.value.upToDate);
+        return;
+      }
+      confirmDlg.open("update");
+    };
+
+    const openShutdownConfirm = () => {
+      confirmDlg.open("shutdown");
+    };
+
+    const onGenerateCode = async () => {
+      if (confirmDlg.kind.value === "update") {
+        return await apiJSON("/update/generate-code", "POST", {});
+      }
+      return await apiJSON("/shutdown/generate-code", "POST", {});
+    };
+
+    const onApplyAction = async ({ code }) => {
+      if (confirmDlg.kind.value === "update") {
         const data = await apiJSON("/update/apply", "POST", { code });
         updateHelperLogPath.value = data.helper_log_path || "";
         ElMessage.success(t.value.updateStarted);
-      },
-    });
+        confirmDlg.close();
+        return;
+      }
 
-    // Shutdown
-    const shutdownCodeFlow = useConfirmCodeFlow({
-      t,
-      ElMessage,
-      onGenerate: async () => {
-        const data = await apiJSON("/shutdown/generate-code", "POST", {});
-        ElMessage.success(t.value.codeGenerated);
-        return data;
-      },
-      onApply: async ({ code }) => {
-        await apiJSON("/shutdown/verify", "POST", { code });
-        ElMessage.success(t.value.shutdownInitiated);
-      },
-    });
+      await apiJSON("/shutdown/verify", "POST", { code });
+      ElMessage.success(t.value.shutdownInitiated);
+      confirmDlg.close();
+    };
 
     onMounted(async () => {
-      updateHelperLogPath.value = "";
-      updateCodeFlow.reset();
-      shutdownCodeFlow.reset();
+      // do NOT auto check update (may hit GitHub API). Only load local proxy UI state.
       await loadUpdateProxy();
-      await checkForUpdate();
     });
 
     return {
       t,
+      checked,
       updateInfo,
       updateChecking,
       updateProxyDetected,
@@ -217,11 +280,15 @@ export default {
       updateProxySaving,
       updateProxyCollapse,
       updateHelperLogPath,
+      updateAvailable,
       checkForUpdate,
       saveUpdateProxy,
       clearUpdateProxy,
-      updateCodeFlow,
-      shutdownCodeFlow,
+      openUpdateConfirm,
+      openShutdownConfirm,
+      confirmDlg,
+      onGenerateCode,
+      onApplyAction,
     };
   },
   template: `
@@ -232,15 +299,22 @@ export default {
         </el-col>
       </el-row>
 
-      <el-row :gutter="14">
-        <el-col :xs="24" :sm="24" :md="16">
-          <el-card shadow="never">
+      <el-row :gutter="14" style="align-items: stretch;">
+        <el-col :xs="24" :sm="24" :md="12">
+          <el-card shadow="never" style="height: 100%">
             <template #header>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                 <b>{{ t.update }}</b>
-                <el-button type="primary" :loading="updateChecking" @click="checkForUpdate">{{ t.checkUpdate }}</el-button>
+                <el-space wrap>
+                  <el-button type="primary" :loading="updateChecking" @click="checkForUpdate">{{ t.checkUpdate }}</el-button>
+                  <el-button type="warning" :disabled="!updateAvailable" @click="openUpdateConfirm">{{ t.applyUpdate }}</el-button>
+                </el-space>
               </div>
             </template>
+
+            <div v-if="!checked" class="muted" style="margin-bottom: 12px;">
+              {{ t.updateNotChecked }}
+            </div>
 
             <div v-if="updateHelperLogPath" style="margin-bottom: 12px">
               <el-alert type="info" :closable="false" :title="t.updateHelperLog" show-icon>
@@ -263,7 +337,7 @@ export default {
 
             <div style="margin-top: 12px">
               <el-alert v-if="updateInfo.update_available === true" type="success" :closable="false" :title="t.updateAvailable" show-icon></el-alert>
-              <el-alert v-else-if="updateInfo.latest_version" type="info" :closable="false" :title="t.upToDate" show-icon></el-alert>
+              <el-alert v-else-if="checked" type="info" :closable="false" :title="t.upToDate" show-icon></el-alert>
             </div>
 
             <div style="margin-top: 12px">
@@ -284,97 +358,70 @@ export default {
                 </el-collapse-item>
               </el-collapse>
             </div>
-
-            <div v-if="updateInfo.update_available === true" style="margin-top: 12px">
-              <el-alert type="warning" :closable="false" :title="t.updateConfirm" show-icon></el-alert>
-
-              <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                <el-button
-                  v-if="!updateCodeFlow.code"
-                  type="primary"
-                  :loading="updateCodeFlow.generating"
-                  @click="updateCodeFlow.generate"
-                >
-                  {{ t.generateCode }}
-                </el-button>
-
-                <template v-else>
-                  <div class="muted">
-                    {{ t.confirmationCode }}
-                    <span v-if="updateCodeFlow.expiryText" class="muted">({{ t.expiresIn }}: {{ updateCodeFlow.expiryText }})</span>
-                  </div>
-                  <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ updateCodeFlow.code }}</div>
-
-                  <el-input
-                    v-model="updateCodeFlow.input"
-                    maxlength="6"
-                    show-word-limit
-                    :placeholder="t.enterCode"
-                    style="width: 240px"
-                    @keyup.enter="updateCodeFlow.apply"
-                  ></el-input>
-
-                  <el-button
-                    v-if="updateCodeFlow.canApply"
-                    type="warning"
-                    :loading="updateCodeFlow.applying"
-                    @click="updateCodeFlow.apply"
-                  >
-                    {{ t.applyUpdate }}
-                  </el-button>
-                </template>
-              </div>
-            </div>
           </el-card>
         </el-col>
 
-        <el-col :xs="24" :sm="24" :md="8">
-          <el-card shadow="never">
+        <el-col :xs="24" :sm="24" :md="12">
+          <el-card shadow="never" style="height: 100%">
             <template #header>
-              <b>{{ t.shutdown }}</b>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <b>{{ t.shutdown }}</b>
+                <el-button type="danger" @click="openShutdownConfirm">{{ t.shutdownSystem }}</el-button>
+              </div>
             </template>
 
             <el-alert :title="t.shutdownConfirm" type="warning" :closable="false" show-icon></el-alert>
-
-            <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-              <el-button
-                v-if="!shutdownCodeFlow.code"
-                type="primary"
-                :loading="shutdownCodeFlow.generating"
-                @click="shutdownCodeFlow.generate"
-              >
-                {{ t.generateCode }}
-              </el-button>
-
-              <template v-else>
-                <div class="muted">
-                  {{ t.confirmationCode }}
-                  <span v-if="shutdownCodeFlow.expiryText" class="muted">({{ t.expiresIn }}: {{ shutdownCodeFlow.expiryText }})</span>
-                </div>
-                <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ shutdownCodeFlow.code }}</div>
-
-                <el-input
-                  v-model="shutdownCodeFlow.input"
-                  maxlength="6"
-                  show-word-limit
-                  :placeholder="t.enterCode"
-                  style="width: 240px"
-                  @keyup.enter="shutdownCodeFlow.apply"
-                ></el-input>
-
-                <el-button
-                  v-if="shutdownCodeFlow.canApply"
-                  type="danger"
-                  :loading="shutdownCodeFlow.applying"
-                  @click="shutdownCodeFlow.apply"
-                >
-                  {{ t.shutdownSystem }}
-                </el-button>
-              </template>
+            <div class="muted" style="margin-top: 10px; font-size: 12px;">
+              {{ t.shutdownInitiated }}
             </div>
           </el-card>
         </el-col>
       </el-row>
+
+      <el-dialog v-model="confirmDlg.visible" :title="confirmDlg.title" width="520px" :close-on-click-modal="false" @close="confirmDlg.close">
+        <el-alert type="warning" :closable="false" :title="confirmDlg.alertTitle" show-icon></el-alert>
+
+        <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <el-button
+            v-if="!confirmDlg.code"
+            type="primary"
+            :loading="confirmDlg.generating"
+            @click="confirmDlg.generate({ onGenerate: onGenerateCode })"
+          >
+            {{ t.generateCode }}
+          </el-button>
+
+          <template v-else>
+            <div class="muted">
+              {{ t.confirmationCode }}
+              <span v-if="confirmDlg.expiryText" class="muted">({{ t.expiresIn }}: {{ confirmDlg.expiryText }})</span>
+            </div>
+            <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ confirmDlg.code }}</div>
+
+            <el-input
+              v-model="confirmDlg.input"
+              maxlength="6"
+              show-word-limit
+              :placeholder="t.enterCode"
+              style="width: 240px"
+              @keyup.enter="confirmDlg.apply({ onApply: onApplyAction })"
+            ></el-input>
+
+            <el-button
+              v-if="confirmDlg.canApply"
+              :type="confirmDlg.actionType"
+              :loading="confirmDlg.applying"
+              @click="confirmDlg.apply({ onApply: onApplyAction })"
+            >
+              {{ confirmDlg.actionLabel }}
+            </el-button>
+          </template>
+        </div>
+
+        <template #footer>
+          <el-button @click="confirmDlg.close">{{ t.close }}</el-button>
+        </template>
+      </el-dialog>
     </div>
   `,
 };
