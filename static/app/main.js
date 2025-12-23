@@ -7,6 +7,8 @@ import {
 } from "./router.js";
 import { GROUPS, getViewByPath, getViewsByGroup } from "./view_registry.js";
 import { loadSidebarCollapsed, saveSidebarCollapsed } from "./sidebar_state.js";
+import { apiJSON } from "./api.js";
+import { createConfirmCodeDialog } from "./confirm_code_dialog.js";
 
 const {
   createApp,
@@ -95,6 +97,24 @@ const app = createApp({
       saveSidebarCollapsed(collapsed.value);
     };
 
+    const ElMessage = ElementPlus.ElMessage;
+    const confirmDlg = createConfirmCodeDialog({ t, ElMessage });
+
+    const openConfirmDialog = (opts) => confirmDlg.open(opts);
+
+    const openShutdownConfirm = () => {
+      openConfirmDialog({
+        nextTitle: t.value.shutdown,
+        nextAlertTitle: t.value.shutdownConfirm,
+        nextActionType: "danger",
+        nextOnGenerate: async () => await apiJSON("/shutdown/generate-code", "POST", {}),
+        nextOnApply: async ({ code }) => {
+          await apiJSON("/shutdown/verify", "POST", { code });
+          ElMessage.success(t.value.shutdownInitiated);
+        },
+      });
+    };
+
 
     let lastOpenedGroupKey = "";
 
@@ -130,6 +150,8 @@ const app = createApp({
       activeComponent.value = componentCache.get(view.path);
       document.title = titleForRoute(route.value, currentLang.value);
 
+      confirmDlg.close();
+
       await syncOpenGroups();
     };
 
@@ -147,6 +169,7 @@ const app = createApp({
     provide("t", t);
     provide("currentLang", currentLang);
     provide("navigate", navigate);
+    provide("openConfirmDialog", openConfirmDialog);
 
     let stopRouteListener = null;
     onMounted(async () => {
@@ -178,6 +201,8 @@ const app = createApp({
       refreshPage,
       switchLanguage,
       toggleSidebar,
+      openShutdownConfirm,
+      confirmDlg,
     };
   },
   template: `
@@ -207,6 +232,12 @@ const app = createApp({
                   <el-radio-button label="en">English</el-radio-button>
                 </el-radio-group>
                 <el-button icon="Refresh" circle @click="refreshPage"></el-button>
+
+                <el-tooltip :content="t.shutdown" placement="bottom">
+                  <template #reference>
+                    <el-button icon="SwitchButton" circle type="danger" @click="openShutdownConfirm"></el-button>
+                  </template>
+                </el-tooltip>
               </el-space>
             </el-col>
           </el-row>
@@ -256,6 +287,56 @@ const app = createApp({
           </el-main>
         </el-container>
       </el-container>
+
+      <el-dialog
+        v-model="confirmDlg.visible"
+        :title="confirmDlg.title"
+        width="520px"
+        :close-on-click-modal="false"
+        @close="confirmDlg.close"
+      >
+        <el-alert
+          type="warning"
+          :closable="false"
+          :title="confirmDlg.alertTitle"
+          show-icon
+        ></el-alert>
+
+        <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <el-button type="primary" :loading="confirmDlg.generating" @click="confirmDlg.generate">
+            {{ t.generateCode }}
+          </el-button>
+
+          <template v-if="confirmDlg.code">
+            <div class="muted">
+              {{ t.confirmationCode }}
+              <span v-if="confirmDlg.expiryText" class="muted">({{ t.expiresIn }}: {{ confirmDlg.expiryText }})</span>
+            </div>
+            <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ confirmDlg.code }}</div>
+          </template>
+
+          <el-input
+            v-model="confirmDlg.input"
+            maxlength="6"
+            :placeholder="t.enterCode"
+            style="width: 240px"
+            @keyup.enter="confirmDlg.submit"
+          ></el-input>
+
+          <el-button
+            :type="confirmDlg.actionType"
+            :loading="confirmDlg.applying"
+            :disabled="!confirmDlg.canApply"
+            @click="confirmDlg.submit"
+          >
+            {{ t.submitCode }}
+          </el-button>
+        </div>
+
+        <template #footer>
+          <el-button @click="confirmDlg.close">{{ t.close }}</el-button>
+        </template>
+      </el-dialog>
     </el-config-provider>
   `,
 });
