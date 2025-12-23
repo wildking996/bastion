@@ -7,7 +7,12 @@ import {
   onRouteChange,
 } from "./router.js";
 import { GROUPS, getViewByPath, getViewsByGroup } from "./view_registry.js";
-import { loadGroupState, saveGroupState } from "./sidebar_state.js";
+import {
+  loadGroupState,
+  loadSidebarCollapsed,
+  saveGroupState,
+  saveSidebarCollapsed,
+} from "./sidebar_state.js";
 
 const { createApp, ref, shallowRef, computed, onMounted, onUnmounted, provide } =
   Vue;
@@ -40,6 +45,9 @@ const app = createApp({
       return window.ElementPlusLocaleEn;
     });
 
+    const collapsed = ref(loadSidebarCollapsed());
+    const asideWidth = computed(() => (collapsed.value ? "72px" : "260px"));
+
     const groupState = ref(loadGroupState(makeGroupDefaults()));
     const defaultOpenGroups = computed(() =>
       Object.entries(groupState.value)
@@ -51,10 +59,28 @@ const app = createApp({
     const activeComponent = shallowRef(null);
     const componentCache = new Map();
 
+    const activeView = computed(() => getViewByPath(route.value));
+    const activeGroup = computed(() => {
+      const view = activeView.value;
+      if (!view) return null;
+      return GROUPS.find((g) => g.key === view.group) || null;
+    });
+
     const viewTitle = computed(() => {
-      const view = getViewByPath(route.value);
+      const view = activeView.value;
       if (!view) return t.value.console;
       return t.value[view.titleKey] || t.value.console;
+    });
+
+    const breadcrumbItems = computed(() => {
+      const items = [{ label: t.value.console }];
+      if (activeGroup.value) {
+        items.push({ label: t.value[activeGroup.value.titleKey] });
+      }
+      if (activeView.value) {
+        items.push({ label: t.value[activeView.value.titleKey] });
+      }
+      return items;
     });
 
     const shutdownDialogVisible = ref(false);
@@ -70,6 +96,14 @@ const app = createApp({
       manage: "Tools",
       logs: "Document",
       system: "Setting",
+    };
+
+    const viewIcons = {
+      "/bastions": "Connection",
+      "/mappings": "Share",
+      "/logs/http": "Document",
+      "/logs/errors": "Warning",
+      "/system/update": "Download",
     };
 
     const stopShutdownTimer = () => {
@@ -148,6 +182,11 @@ const app = createApp({
       document.title = titleForRoute(route.value, currentLang.value);
     };
 
+    const toggleSidebar = () => {
+      collapsed.value = !collapsed.value;
+      saveSidebarCollapsed(collapsed.value);
+    };
+
     const onOpenGroup = (key) => {
       groupState.value[key] = true;
       saveGroupState(groupState.value);
@@ -205,9 +244,13 @@ const app = createApp({
       elLocale,
       currentLang,
       t,
+      collapsed,
+      asideWidth,
       viewTitle,
+      breadcrumbItems,
       groups: GROUPS,
       groupIcons,
+      viewIcons,
       viewsByGroup,
       defaultOpenGroups,
       route,
@@ -217,6 +260,7 @@ const app = createApp({
       onCloseGroup,
       refreshPage,
       switchLanguage,
+      toggleSidebar,
       shutdownDialogVisible,
       shutdownCode,
       shutdownCodeExpiry,
@@ -233,11 +277,21 @@ const app = createApp({
       <div class="app-shell">
         <el-container>
           <el-header class="app-header" height="auto">
-            <el-row justify="space-between" align="middle">
-              <el-col :span="14" style="min-width: 220px">
-                <div class="brand">
-                  <div class="brand-title">{{ t.console }}</div>
-                  <div class="brand-subtitle">{{ viewTitle }}</div>
+            <el-row justify="space-between" align="middle" :gutter="10">
+              <el-col :span="14" style="min-width: 240px">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <el-button
+                    :icon="collapsed ? 'Expand' : 'Fold'"
+                    circle
+                    @click="toggleSidebar"
+                    :title="collapsed ? 'Expand' : 'Collapse'"
+                  ></el-button>
+                  <div class="brand">
+                    <div class="brand-title">{{ t.console }}</div>
+                    <el-breadcrumb separator="/" class="brand-subtitle">
+                      <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
+                    </el-breadcrumb>
+                  </div>
                 </div>
               </el-col>
               <el-col :span="10" style="display:flex;justify-content:flex-end">
@@ -254,32 +308,38 @@ const app = createApp({
           </el-header>
 
           <el-container class="app-body">
-            <el-aside width="260px" class="app-aside">
+            <el-aside :width="asideWidth" class="app-aside">
               <el-card class="aside-card" shadow="never">
-                <el-menu
-                  :default-active="route"
-                  :default-openeds="defaultOpenGroups"
-                  class="aside-menu"
-                  @select="onSelectMenu"
-                  @open="onOpenGroup"
-                  @close="onCloseGroup"
-                >
-                  <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
-                    <template #title>
-                      <el-icon>
-                        <component :is="groupIcons[g.key]" />
-                      </el-icon>
-                      <span>{{ t[g.titleKey] }}</span>
-                    </template>
-                    <el-menu-item
-                      v-for="v in viewsByGroup[g.key]"
-                      :key="v.path"
-                      :index="v.path"
-                    >
-                      {{ t[v.titleKey] }}
-                    </el-menu-item>
-                  </el-sub-menu>
-                </el-menu>
+                <el-scrollbar height="100%">
+                  <el-menu
+                    :default-active="route"
+                    :default-openeds="defaultOpenGroups"
+                    :collapse="collapsed"
+                    class="aside-menu"
+                    @select="onSelectMenu"
+                    @open="onOpenGroup"
+                    @close="onCloseGroup"
+                  >
+                    <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
+                      <template #title>
+                        <el-icon>
+                          <component :is="groupIcons[g.key]" />
+                        </el-icon>
+                        <span>{{ t[g.titleKey] }}</span>
+                      </template>
+                      <el-menu-item
+                        v-for="v in viewsByGroup[g.key]"
+                        :key="v.path"
+                        :index="v.path"
+                      >
+                        <el-icon v-if="viewIcons[v.path]">
+                          <component :is="viewIcons[v.path]" />
+                        </el-icon>
+                        <span>{{ t[v.titleKey] }}</span>
+                      </el-menu-item>
+                    </el-sub-menu>
+                  </el-menu>
+                </el-scrollbar>
               </el-card>
             </el-aside>
 
