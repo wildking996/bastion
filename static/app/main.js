@@ -256,10 +256,17 @@ const app = createApp({
 
             <el-col :span="12" style="display:flex;justify-content:flex-end">
               <el-space :size="10" alignment="center">
-                <el-radio-group v-model="currentLang" size="small" @change="switchLanguage">
-                  <el-radio-button label="zh">中文</el-radio-button>
-                  <el-radio-button label="en">English</el-radio-button>
-                </el-radio-group>
+                <el-dropdown @command="switchLanguage">
+                  <el-button circle aria-label="language">
+                    <el-icon><ChatLineRound /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="zh" :disabled="currentLang === 'zh'">中文</el-dropdown-item>
+                      <el-dropdown-item command="en" :disabled="currentLang === 'en'">English</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
 
                 <el-divider direction="vertical" />
 
