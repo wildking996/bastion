@@ -104,6 +104,11 @@ const app = createApp({
         switchLanguage("en");
         return;
       }
+    
+      if (typeof index === "string" && index.startsWith("/")) {
+        navigate(index);
+        return;
+      }
     };
 
     const switchLanguage = (lang) => {
@@ -263,11 +268,15 @@ const app = createApp({
   template: `
     <el-config-provider :locale="elLocale">
       <el-container class="app-shell">
-                  <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
+        <el-header height="60px" style="padding: 0; border-bottom: 1px solid var(--el-border-color-lighter);">
           <el-menu
             mode="horizontal"
-            :ellipsis="false"
+            :default-active="route"
+            :ellipsis="true"
             class="top-menu"
+            background-color="#545c64"
+            text-color="#fff"
+            active-text-color="#ffd04b"
             @select="onTopMenuSelect"
           >
             <el-menu-item index="toggle">
@@ -276,14 +285,30 @@ const app = createApp({
               </el-icon>
             </el-menu-item>
 
-            <el-menu-item index="brand" disabled class="top-menu-brand">
-              <div class="top-brand">
-                <el-text size="large" tag="b">{{ t.console }}</el-text>
-                <el-breadcrumb separator="/" class="top-breadcrumb">
-                  <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
-                </el-breadcrumb>
-              </div>
+            <el-menu-item index="/home">
+              <el-icon><House /></el-icon>
+              <span>{{ t.navHomeUpdates }}</span>
             </el-menu-item>
+
+            <el-sub-menu index="manage">
+              <template #title>
+                <el-icon><Tools /></el-icon>
+                <span>{{ t.navManage }}</span>
+              </template>
+              <el-menu-item index="/bastions">{{ t.navBastions }}</el-menu-item>
+              <el-menu-item index="/mappings">{{ t.navMappings }}</el-menu-item>
+            </el-sub-menu>
+
+            <el-sub-menu index="logs">
+              <template #title>
+                <el-icon><Document /></el-icon>
+                <span>{{ t.navLogs }}</span>
+              </template>
+              <el-menu-item index="/logs/http">{{ t.navHTTPLogs }}</el-menu-item>
+              <el-menu-item index="/logs/errors">{{ t.navErrorLogs }}</el-menu-item>
+            </el-sub-menu>
+
+            <div class="flex-grow" />
 
             <el-menu-item index="refresh">
               <el-tooltip :content="t.refresh" placement="bottom">
@@ -310,6 +335,7 @@ const app = createApp({
             </el-sub-menu>
           </el-menu>
         </el-header>
+
 
 
 
