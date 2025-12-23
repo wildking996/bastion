@@ -235,30 +235,41 @@ const app = createApp({
   template: `
     <el-config-provider :locale="elLocale">
       <el-container class="app-shell">
-        <el-header class="app-header" height="auto">
-          <el-row justify="space-between" align="middle" :gutter="10">
-            <el-col :span="14" style="min-width: 240px">
-              <div style="display:flex;align-items:center;gap:10px;">
+        <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
+          <el-row justify="space-between" align="middle" style="height: 100%;" :gutter="10">
+            <el-col :span="12" style="min-width: 260px">
+              <el-space :size="10" alignment="center">
                 <el-button
                   :icon="collapsed ? 'Expand' : 'Fold'"
                   circle
                   @click="toggleSidebar"
                 ></el-button>
-                <div class="brand">
-                  <div class="brand-title">{{ t.console }}</div>
-                  <el-breadcrumb separator="/" class="brand-subtitle">
+
+                <el-space direction="vertical" :size="2">
+                  <el-text size="large" tag="b">{{ t.console }}</el-text>
+                  <el-breadcrumb separator="/">
                     <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
                   </el-breadcrumb>
-                </div>
-              </div>
+                </el-space>
+              </el-space>
             </el-col>
-            <el-col :span="10" style="display:flex;justify-content:flex-end">
-              <el-space wrap>
+
+            <el-col :span="12" style="display:flex;justify-content:flex-end">
+              <el-space :size="10" alignment="center">
                 <el-radio-group v-model="currentLang" size="small" @change="switchLanguage">
                   <el-radio-button label="zh">中文</el-radio-button>
                   <el-radio-button label="en">English</el-radio-button>
                 </el-radio-group>
-                <el-button icon="Refresh" circle @click="refreshPage"></el-button>
+
+                <el-divider direction="vertical" />
+
+                <el-tooltip :content="t.refresh" placement="bottom">
+                  <template #reference>
+                    <el-button circle @click="refreshPage" aria-label="refresh">
+                      <el-icon><Refresh /></el-icon>
+                    </el-button>
+                  </template>
+                </el-tooltip>
 
                 <el-tooltip :content="t.shutdown" placement="bottom">
                   <template #reference>
