@@ -31,17 +31,7 @@
       body {
         margin: 0;
         padding: 0;
-        background: radial-gradient(
-            1200px circle at 10% 10%,
-            rgba(37, 99, 235, 0.10),
-            transparent 55%
-          ),
-          radial-gradient(
-            900px circle at 90% 20%,
-            rgba(56, 189, 248, 0.12),
-            transparent 50%
-          ),
-          #f6f8fc;
+        background: #ffffff;
         color: #111827;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
           "Helvetica Neue", Arial;
@@ -52,20 +42,13 @@
       }
 
       .app-shell {
-        max-width: 1600px;
-        margin: 0 auto;
-        padding: 16px;
         height: 100%;
-        box-sizing: border-box;
       }
 
       .app-header {
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(17, 24, 39, 0.08);
-        border-radius: 14px;
-        padding: 12px 14px;
-        margin-bottom: 14px;
+        background: #ffffff;
+        border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+        padding: 10px 14px;
       }
 
       .brand {
@@ -75,7 +58,7 @@
       }
 
       .brand-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 700;
         letter-spacing: 0.2px;
         line-height: 1.2;
@@ -87,44 +70,46 @@
       }
 
       .app-body {
-        height: calc(100% - 82px);
+        height: calc(100% - 56px);
       }
 
       .app-aside {
-        padding-right: 14px;
-        box-sizing: border-box;
-      }
-
-      .aside-card {
         height: 100%;
-        border-radius: 14px;
-        border: 1px solid rgba(17, 24, 39, 0.08);
-        background: rgba(255, 255, 255, 0.80);
-        backdrop-filter: blur(10px);
-      }
-
-      .aside-card .el-card__body {
-        padding: 10px;
+        border-right: 1px solid rgba(17, 24, 39, 0.08);
+        background: #ffffff;
       }
 
       .aside-menu {
         border-right: none;
-        background: transparent;
+      }
+
+      .aside-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px;
+        border-bottom: 1px solid rgba(17, 24, 39, 0.06);
+      }
+
+      .aside-top-title {
+        font-weight: 600;
+        color: #111827;
       }
 
       .app-main {
+        height: 100%;
         padding: 0;
+        background: #ffffff;
       }
 
-      .main-surface {
+      .main-scroll {
         height: 100%;
-        border-radius: 14px;
-        border: 1px solid rgba(17, 24, 39, 0.08);
-        background: rgba(255, 255, 255, 0.88);
-        backdrop-filter: blur(10px);
+      }
+
+      .main-inner {
         padding: 14px;
         box-sizing: border-box;
-        overflow: auto;
       }
 
       .muted {

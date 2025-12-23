@@ -66,12 +66,6 @@ const app = createApp({
       return GROUPS.find((g) => g.key === view.group) || null;
     });
 
-    const viewTitle = computed(() => {
-      const view = activeView.value;
-      if (!view) return t.value.console;
-      return t.value[view.titleKey] || t.value.console;
-    });
-
     const breadcrumbItems = computed(() => {
       const items = [{ label: t.value.console }];
       if (activeGroup.value) {
@@ -246,7 +240,6 @@ const app = createApp({
       t,
       collapsed,
       asideWidth,
-      viewTitle,
       breadcrumbItems,
       groups: GROUPS,
       groupIcons,
@@ -274,83 +267,82 @@ const app = createApp({
   },
   template: `
     <el-config-provider :locale="elLocale">
-      <div class="app-shell">
-        <el-container>
-          <el-header class="app-header" height="auto">
-            <el-row justify="space-between" align="middle" :gutter="10">
-              <el-col :span="14" style="min-width: 240px">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <el-button
-                    :icon="collapsed ? 'Expand' : 'Fold'"
-                    circle
-                    @click="toggleSidebar"
-                    :title="collapsed ? 'Expand' : 'Collapse'"
-                  ></el-button>
-                  <div class="brand">
-                    <div class="brand-title">{{ t.console }}</div>
-                    <el-breadcrumb separator="/" class="brand-subtitle">
-                      <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
-                    </el-breadcrumb>
-                  </div>
+      <el-container class="app-shell">
+        <el-header class="app-header" height="auto">
+          <el-row justify="space-between" align="middle" :gutter="10">
+            <el-col :span="14" style="min-width: 240px">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <el-button
+                  :icon="collapsed ? 'Expand' : 'Fold'"
+                  circle
+                  @click="toggleSidebar"
+                ></el-button>
+                <div class="brand">
+                  <div class="brand-title">{{ t.console }}</div>
+                  <el-breadcrumb separator="/" class="brand-subtitle">
+                    <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
+                  </el-breadcrumb>
                 </div>
-              </el-col>
-              <el-col :span="10" style="display:flex;justify-content:flex-end">
-                <el-space wrap>
-                  <el-radio-group v-model="currentLang" size="small" @change="switchLanguage">
-                    <el-radio-button label="zh">中文</el-radio-button>
-                    <el-radio-button label="en">English</el-radio-button>
-                  </el-radio-group>
-                  <el-button icon="Refresh" circle @click="refreshPage"></el-button>
-                  <el-button icon="SwitchButton" type="danger" @click="showShutdownDialog">{{ t.shutdown }}</el-button>
-                </el-space>
-              </el-col>
-            </el-row>
-          </el-header>
+              </div>
+            </el-col>
+            <el-col :span="10" style="display:flex;justify-content:flex-end">
+              <el-space wrap>
+                <el-radio-group v-model="currentLang" size="small" @change="switchLanguage">
+                  <el-radio-button label="zh">中文</el-radio-button>
+                  <el-radio-button label="en">English</el-radio-button>
+                </el-radio-group>
+                <el-button icon="Refresh" circle @click="refreshPage"></el-button>
+                <el-button icon="SwitchButton" type="danger" @click="showShutdownDialog">{{ t.shutdown }}</el-button>
+              </el-space>
+            </el-col>
+          </el-row>
+        </el-header>
 
-          <el-container class="app-body">
-            <el-aside :width="asideWidth" class="app-aside">
-              <el-card class="aside-card" shadow="never">
-                <el-scrollbar height="100%">
-                  <el-menu
-                    :default-active="route"
-                    :default-openeds="defaultOpenGroups"
-                    :collapse="collapsed"
-                    class="aside-menu"
-                    @select="onSelectMenu"
-                    @open="onOpenGroup"
-                    @close="onCloseGroup"
-                  >
-                    <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
-                      <template #title>
-                        <el-icon>
-                          <component :is="groupIcons[g.key]" />
-                        </el-icon>
-                        <span>{{ t[g.titleKey] }}</span>
-                      </template>
-                      <el-menu-item
-                        v-for="v in viewsByGroup[g.key]"
-                        :key="v.path"
-                        :index="v.path"
-                      >
-                        <el-icon v-if="viewIcons[v.path]">
-                          <component :is="viewIcons[v.path]" />
-                        </el-icon>
-                        <span>{{ t[v.titleKey] }}</span>
-                      </el-menu-item>
-                    </el-sub-menu>
-                  </el-menu>
-                </el-scrollbar>
-              </el-card>
-            </el-aside>
+        <el-container class="app-body">
+          <el-aside :width="asideWidth" class="app-aside">
+            <div class="aside-top">
+              <div class="aside-top-title" v-if="!collapsed">Menu</div>
+            </div>
 
-            <el-main class="app-main">
-              <div class="main-surface">
+            <el-menu
+              :default-active="route"
+              :default-openeds="defaultOpenGroups"
+              :collapse="collapsed"
+              class="aside-menu"
+              @select="onSelectMenu"
+              @open="onOpenGroup"
+              @close="onCloseGroup"
+            >
+              <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
+                <template #title>
+                  <el-icon>
+                    <component :is="groupIcons[g.key]" />
+                  </el-icon>
+                  <span>{{ t[g.titleKey] }}</span>
+                </template>
+                <el-menu-item
+                  v-for="v in viewsByGroup[g.key]"
+                  :key="v.path"
+                  :index="v.path"
+                >
+                  <el-icon v-if="viewIcons[v.path]">
+                    <component :is="viewIcons[v.path]" />
+                  </el-icon>
+                  <span>{{ t[v.titleKey] }}</span>
+                </el-menu-item>
+              </el-sub-menu>
+            </el-menu>
+          </el-aside>
+
+          <el-main class="app-main">
+            <el-scrollbar class="main-scroll">
+              <div class="main-inner">
                 <keep-alive>
                   <component :is="activeComponent" />
                 </keep-alive>
               </div>
-            </el-main>
-          </el-container>
+            </el-scrollbar>
+          </el-main>
         </el-container>
 
         <el-dialog v-model="shutdownDialogVisible" :title="t.shutdown" width="500px">
@@ -392,7 +384,7 @@ const app = createApp({
             </el-form>
           </div>
         </el-dialog>
-      </div>
+      </el-container>
     </el-config-provider>
   `,
 });
