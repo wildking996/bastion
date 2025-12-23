@@ -59,17 +59,13 @@ import { useConfirmDialogStore } from "@/store/confirm";
 
 const app = useAppStore();
 const confirm = useConfirmDialogStore();
-const { t } = useI18n({
-  messages: {
-    zh: { menuToggle: "展开/收起侧边栏" },
-    en: { menuToggle: "Toggle sidebar" },
-  },
-});
+const { t, locale } = useI18n();
 
 function setLanguage(lang: AppLanguage) {
   if (app.language === lang) return;
   app.setLanguage(lang);
-  ElMessage.success(lang === "zh" ? "已切换为中文" : "Switched to English");
+  locale.value = lang;
+  ElMessage.success(t(lang === "zh" ? "toast.languageSwitchedToZh" : "toast.languageSwitchedToEn"));
 }
 
 function reload() {
@@ -87,7 +83,7 @@ function openShutdown() {
     async submit(code: string) {
       await api.post("/shutdown/verify", { code });
     },
-    successToast: "Shutdown initiated",
+    successToast: t("toast.shutdownInitiated"),
   });
 }
 </script>

@@ -18,6 +18,15 @@ const messages = {
       shutdown: "关闭服务",
       language: "语言",
     },
+    menuToggle: "展开/收起侧边栏",
+    toast: {
+      shutdownInitiated: "已发起关闭",
+      updateStarted: "已开始更新",
+      themeDark: "已切换为暗黑",
+      themeLight: "已切换为浅色",
+      languageSwitchedToZh: "已切换为中文",
+      languageSwitchedToEn: "已切换为英文",
+    },
     common: {
       add: "新增",
       edit: "编辑",
@@ -173,6 +182,15 @@ const messages = {
       shutdown: "Shutdown",
       language: "Language",
     },
+    menuToggle: "Toggle sidebar",
+    toast: {
+      shutdownInitiated: "Shutdown initiated",
+      updateStarted: "Update started",
+      themeDark: "Switched to dark",
+      themeLight: "Switched to light",
+      languageSwitchedToZh: "Switched to Chinese",
+      languageSwitchedToEn: "Switched to English",
+    },
     common: {
       add: "Add",
       edit: "Edit",
@@ -326,4 +344,8 @@ export const i18n = createI18n({
 export function syncI18nWithStore() {
   const app = useAppStore();
   i18n.global.locale.value = app.language;
+
+  app.$subscribe((_mutation, state) => {
+    i18n.global.locale.value = state.language;
+  });
 }

@@ -159,8 +159,10 @@
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import * as echarts from "echarts";
-import { computed, nextTick, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+
+import { useAppStore } from "@/store/app";
 
 import { api } from "@/api/client";
 import type { Bastion, MappingCreate, MappingRead, StatsMap, StatsSnapshot } from "@/api/types";
@@ -170,6 +172,8 @@ import { requiredNumberRule, requiredTrimRule } from "@/utils/formRules";
 import { formatBytes } from "@/utils/format";
 
 const { t, locale } = useI18n();
+
+const app = useAppStore();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -372,27 +376,53 @@ function pushPoint(stats: StatsSnapshot) {
   }
 }
 
+function cssVar(name: string, fallback: string) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function currentChartTheme() {
+  const text = cssVar("--el-text-color-primary", "#334155");
+  const muted = cssVar("--el-text-color-secondary", "#64748b");
+  const axisLine = cssVar("--el-border-color", "rgba(0,0,0,0.12)");
+  const splitLine = cssVar("--el-border-color-lighter", "rgba(0,0,0,0.08)");
+  const primary = cssVar("--el-color-primary", "#409EFF");
+  const success = cssVar("--el-color-success", "#67C23A");
+  return { text, muted, axisLine, splitLine, primary, success };
+}
+
 function renderChart() {
   if (!chart) return;
-  chart.setOption({
-    tooltip: { trigger: "axis" },
-    legend: { data: ["up", "down"], textStyle: { color: "#cbd5e1" } },
-    grid: { left: 40, right: 20, top: 30, bottom: 30 },
-    xAxis: {
-      type: "category",
-      data: xAxis.value,
-      axisLabel: { color: "#94a3b8" },
+
+  const upName = t("mappings.trafficUp");
+  const downName = t("mappings.trafficDown");
+  const theme = currentChartTheme();
+
+  chart.setOption(
+    {
+      color: [theme.primary, theme.success],
+      tooltip: { trigger: "axis" },
+      legend: { data: [upName, downName], textStyle: { color: theme.muted } },
+      grid: { left: 40, right: 20, top: 30, bottom: 30 },
+      xAxis: {
+        type: "category",
+        data: xAxis.value,
+        axisLabel: { color: theme.muted },
+        axisLine: { lineStyle: { color: theme.axisLine } },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: theme.muted },
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+      },
+      series: [
+        { name: upName, type: "line", smooth: true, showSymbol: false, data: upSeries.value },
+        { name: downName, type: "line", smooth: true, showSymbol: false, data: downSeries.value },
+      ],
     },
-    yAxis: {
-      type: "value",
-      axisLabel: { color: "#94a3b8" },
-      splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
-    },
-    series: [
-      { name: "up", type: "line", smooth: true, showSymbol: false, data: upSeries.value },
-      { name: "down", type: "line", smooth: true, showSymbol: false, data: downSeries.value },
-    ],
-  });
+    { notMerge: true }
+  );
 }
 
 async function pollStats() {
@@ -405,6 +435,7 @@ async function pollStats() {
 }
 
 async function openTraffic(row: MappingRead) {
+  closeTraffic();
   trafficMappingId.value = row.id;
   xAxis.value = [];
   upSeries.value = [];
@@ -424,6 +455,14 @@ async function openTraffic(row: MappingRead) {
   }, 1000);
 }
 
+watch(
+  () => [app.theme, locale.value],
+  () => {
+    if (trafficVisible.value) renderChart();
+  },
+  { flush: "post" }
+);
+
 function closeTraffic() {
   if (pollTimer != null) {
     window.clearInterval(pollTimer);
@@ -434,6 +473,10 @@ function closeTraffic() {
     chart = null;
   }
 }
+
+onBeforeUnmount(() => {
+  closeTraffic();
+});
 
 onMounted(() => {
   Promise.all([refresh(), loadBastions()]).catch(() => undefined);

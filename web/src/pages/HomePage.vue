@@ -122,7 +122,7 @@ const themeIcon = computed(() => (nextTheme.value === "dark" ? Moon : Sunny));
 
 function toggleTheme() {
   app.toggleTheme();
-  ElMessage.success(app.theme === "dark" ? "已切换为暗黑" : "已切换为浅色");
+  ElMessage.success(t(app.theme === "dark" ? "toast.themeDark" : "toast.themeLight"));
 }
 
 const checking = ref(false);
@@ -179,7 +179,7 @@ function openConfirmUpdate() {
       const res = await api.post<UpdateApplyResponse>("/update/apply", { code });
       applyResult.value = res.data;
     },
-    successToast: "Update started",
+    successToast: t("toast.updateStarted"),
   });
 }
 

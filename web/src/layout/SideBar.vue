@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { Document, House, Tools } from "@element-plus/icons-vue";
-import { ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 
@@ -66,8 +66,13 @@ function applyAutoOpen(p: string) {
 watch(
   () => route.path,
   (p) => applyAutoOpen(p),
-  { immediate: true }
+  { flush: "post" }
 );
+
+
+onMounted(() => {
+  applyAutoOpen(route.path);
+});
 
 function onSelect(index: string) {
   if (index.startsWith("/")) router.push(index);
