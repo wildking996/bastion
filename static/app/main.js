@@ -208,6 +208,7 @@ const app = createApp({
 
         <el-container class="app-body">
           <el-aside :width="asideWidth" class="app-aside">
+            <el-scrollbar class="aside-scroll">
             <el-menu
               ref="menuRef"
               :default-active="route"
@@ -234,6 +235,7 @@ const app = createApp({
                 </el-menu-item>
               </el-sub-menu>
             </el-menu>
+            </el-scrollbar>
           </el-aside>
 
           <el-main class="app-main">

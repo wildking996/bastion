@@ -307,7 +307,7 @@ export default {
                 <b>{{ t.update }}</b>
                 <el-space wrap>
                   <el-button type="primary" :loading="updateChecking" @click="checkForUpdate">{{ t.checkUpdate }}</el-button>
-                  <el-button type="warning" :disabled="!updateAvailable" @click="openUpdateConfirm">{{ t.applyUpdate }}</el-button>
+                  <el-button type="warning" :disabled="!updateAvailable" @click="openUpdateConfirm">{{ t.generateCode }}</el-button>
                 </el-space>
               </div>
             </template>
@@ -371,9 +371,7 @@ export default {
             </template>
 
             <el-alert :title="t.shutdownConfirm" type="warning" :closable="false" show-icon></el-alert>
-            <div class="muted" style="margin-top: 10px; font-size: 12px;">
-              {{ t.shutdownInitiated }}
-            </div>
+
           </el-card>
         </el-col>
       </el-row>
@@ -383,7 +381,7 @@ export default {
 
         <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <el-button
-            v-if="!confirmDlg.code"
+            v-if="!confirmDlg.code || confirmDlg.expiryText === t.codeExpired"
             type="primary"
             :loading="confirmDlg.generating"
             @click="confirmDlg.generate({ onGenerate: onGenerateCode })"
@@ -401,7 +399,6 @@ export default {
             <el-input
               v-model="confirmDlg.input"
               maxlength="6"
-              show-word-limit
               :placeholder="t.enterCode"
               style="width: 240px"
               @keyup.enter="confirmDlg.apply({ onApply: onApplyAction })"

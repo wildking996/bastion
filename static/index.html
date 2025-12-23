@@ -70,13 +70,19 @@
       }
 
       .app-body {
-        height: calc(100% - 56px);
+        flex: 1;
+        min-height: 0;
       }
 
       .app-aside {
         height: 100%;
         border-right: 1px solid rgba(17, 24, 39, 0.08);
         background: #ffffff;
+        overflow: hidden;
+      }
+
+      .aside-scroll {
+        height: 100%;
       }
 
       .aside-menu {
