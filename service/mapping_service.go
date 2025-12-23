@@ -119,7 +119,7 @@ func (s *MappingService) Create(req models.MappingCreate) (*models.Mapping, erro
 	}
 
 	switch req.Type {
-	case "tcp", "socks5", "http":
+	case "tcp", "socks5", "http", "mixed":
 	default:
 		return nil, fmt.Errorf("invalid mapping type: %s", req.Type)
 	}
@@ -292,6 +292,8 @@ func (s *MappingService) Start(id string) error {
 		session = core.NewSocks5Session(mapping, bastions)
 	case "http":
 		session = core.NewHTTPProxySession(mapping, bastions)
+	case "mixed":
+		session = core.NewMixedProxySession(mapping, bastions)
 	default:
 		session = core.NewTunnelSession(mapping, bastions)
 	}

@@ -131,6 +131,7 @@ Key flags (see `./bastion --help` for full list):
 
 - Bastions: `GET /api/bastions`, `POST /api/bastions`, `PUT /api/bastions/:id`, `DELETE /api/bastions/:id`
 - Mappings: `GET /api/mappings`, `POST /api/mappings` (create only), `PUT /api/mappings/:id` (update when stopped), `DELETE /api/mappings/:id`, `POST /api/mappings/:id/start`, `POST /api/mappings/:id/stop`
+  - Types: `tcp` (tunnel), `socks5` (proxy), `http` (forward proxy), `mixed` (HTTP+SOCKS5 on one port; protocol detected from initial bytes)
   - Optional mapping access control: `allow_cidrs` / `deny_cidrs` (CIDR or single IP; deny wins; allow non-empty means allow-only)
 - Statistics: `GET /api/stats`
 - HTTP audit logs: `GET /api/http-logs` (supports `q/regex/method/host/url/local_port/bastion/status/since/until`), `GET /api/http-logs/:id`, `DELETE /api/http-logs`
@@ -277,6 +278,7 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 
 - 跳板机：`GET/POST/PUT/DELETE /api/bastions`
 - 映射：`GET /api/mappings`、`POST /api/mappings`（仅创建）、`PUT /api/mappings/:id`（停止状态可更新）、`DELETE /api/mappings/:id`、`POST /api/mappings/:id/start`、`POST /api/mappings/:id/stop`
+  - 类型：`tcp`（隧道）、`socks5`（代理）、`http`（正向代理）、`mixed`（同一端口同时支持 HTTP+SOCKS5，基于首包字节识别协议）
 - 统计：`GET /api/stats`
 - HTTP 审计日志：`GET /api/http-logs`（支持 `q/regex/method/host/url/local_port/bastion/status/since/until`），`GET /api/http-logs/:id`，`DELETE /api/http-logs`
   - 详情分片：`GET /api/http-logs/:id?part=request_header|request_body|response_header|response_body`

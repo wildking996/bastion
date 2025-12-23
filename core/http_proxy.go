@@ -116,7 +116,7 @@ func (s *HTTPProxySession) handleHTTPClientWithRecover(conn net.Conn) {
 }
 
 // handleHTTPClient handles an HTTP proxy client connection
-func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
+func (s *BaseSession) handleHTTPClient(clientConn net.Conn) {
 	defer s.wg.Done()
 	defer clientConn.Close()
 
@@ -200,7 +200,7 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 
 	trackingWriter := &proxyTrackingWriter{
 		dst:       remoteConnWithTimeout,
-		session:   &s.BaseSession,
+		session:   s,
 		direction: "request",
 		connID:    connID,
 	}
@@ -220,7 +220,7 @@ func (s *HTTPProxySession) handleHTTPClient(clientConn net.Conn) {
 
 		respWriter := &proxyTrackingWriter{
 			dst:       clientConnWithTimeout,
-			session:   &s.BaseSession,
+			session:   s,
 			direction: "response",
 			connID:    connID,
 		}
@@ -258,7 +258,7 @@ func isWebSocketUpgradeRequest(req *http.Request) bool {
 
 // pipeRaw proxies bidirectional bytes without feeding the HTTP audit parser.
 // clientReader is the bufio.Reader used for parsing the initial request, which may contain buffered bytes.
-func (s *HTTPProxySession) pipeRaw(clientConn net.Conn, clientReader *bufio.Reader, remoteConn net.Conn, remoteReader *bufio.Reader, connID string) {
+func (s *BaseSession) pipeRaw(clientConn net.Conn, clientReader *bufio.Reader, remoteConn net.Conn, remoteReader *bufio.Reader, connID string) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -283,7 +283,7 @@ func (s *HTTPProxySession) pipeRaw(clientConn net.Conn, clientReader *bufio.Read
 	wg.Wait()
 }
 
-func (s *HTTPProxySession) copyRaw(dst net.Conn, src io.Reader, direction, connID string) {
+func (s *BaseSession) copyRaw(dst net.Conn, src io.Reader, direction, connID string) {
 	pool := getForwardBufferPool()
 	bufPtr := pool.Get(pool.InitialSize())
 	buf := *bufPtr

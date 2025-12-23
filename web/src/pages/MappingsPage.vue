@@ -10,7 +10,11 @@
 
       <el-table :data="paged" stripe v-loading="loading">
         <el-table-column prop="id" :label="t('mappings.id')" min-width="200" />
-        <el-table-column prop="type" :label="t('mappings.type')" width="90" />
+        <el-table-column :label="t('mappings.type')" width="130">
+          <template #default="scope">
+            {{ mappingTypeLabel(scope.row.type) }}
+          </template>
+        </el-table-column>
         <el-table-column :label="t('mappings.local')" min-width="160">
           <template #default="scope">
             <span class="mono">{{ scope.row.local_host }}:{{ scope.row.local_port }}</span>
@@ -73,9 +77,10 @@
 
         <el-form-item prop="type" :label="t('mappings.type')">
           <el-select v-model="form.type" :disabled="isEdit">
-            <el-option label="tcp" value="tcp" />
-            <el-option label="socks5" value="socks5" />
-            <el-option label="http" value="http" />
+            <el-option :label="t('mappings.types.tcp')" value="tcp" />
+            <el-option :label="t('mappings.types.socks5')" value="socks5" />
+            <el-option :label="t('mappings.types.http')" value="http" />
+            <el-option :label="t('mappings.types.mixed')" value="mixed" />
           </el-select>
         </el-form-item>
 
@@ -172,6 +177,14 @@ import { requiredNumberRule, requiredTrimRule } from "@/utils/formRules";
 import { formatBytes } from "@/utils/format";
 
 const { t, locale } = useI18n();
+
+function mappingTypeLabel(v: string) {
+  if (v === "tcp") return t("mappings.types.tcp");
+  if (v === "socks5") return t("mappings.types.socks5");
+  if (v === "http") return t("mappings.types.http");
+  if (v === "mixed") return t("mappings.types.mixed");
+  return v;
+}
 
 const app = useAppStore();
 

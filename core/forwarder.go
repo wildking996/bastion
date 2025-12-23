@@ -324,7 +324,7 @@ func (s *TunnelSession) handleTCPClient(clientConn net.Conn) {
 }
 
 // handleSocks5Client processes a SOCKS5 client connection
-func (s *Socks5Session) handleSocks5Client(clientConn net.Conn) {
+func (s *BaseSession) handleSocks5Client(clientConn net.Conn) {
 	defer s.wg.Done()
 	defer clientConn.Close()
 

@@ -491,14 +491,19 @@ func (c *CLI) addMapping() {
 	mapping.LocalPort = localPort
 
 	// Type
-	typeStr := c.readInput("Type (1=TCP, 2=SOCKS5)", "1")
+	typeStr := c.readInput("Type (1=TCP, 2=SOCKS5, 3=HTTP, 4=Mixed)", "1")
 	if typeStr == "cancel" {
 		fmt.Println("\n❌ Operation cancelled")
 		return
 	}
-	if typeStr == "2" {
+	switch strings.TrimSpace(typeStr) {
+	case "2":
 		mapping.Type = "socks5"
-	} else {
+	case "3":
+		mapping.Type = "http"
+	case "4":
+		mapping.Type = "mixed"
+	default:
 		mapping.Type = "tcp"
 	}
 
