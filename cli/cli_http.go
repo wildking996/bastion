@@ -621,7 +621,7 @@ func (c *CLIHttp) addMapping() {
 		break
 	}
 
-	input, cancelled := c.readInputWithCancel("Type (1=TCP, 2=SOCKS5, 3=HTTP)", "1")
+	input, cancelled := c.readInputWithCancel("Type (1=TCP, 2=SOCKS5, 3=HTTP, 4=Mixed)", "1")
 	if cancelled {
 		fmt.Println("\n❌ Operation cancelled")
 		return
@@ -631,6 +631,8 @@ func (c *CLIHttp) addMapping() {
 		mapping.Type = "socks5"
 	case "3":
 		mapping.Type = "http"
+	case "4":
+		mapping.Type = "mixed"
 	default:
 		mapping.Type = "tcp"
 	}
@@ -777,17 +779,22 @@ func (c *CLIHttp) addMapping() {
 				break
 			}
 		case "3":
-			newType, cancelled := c.readInputWithCancel("Type (1=TCP, 2=SOCKS5)", "")
+			newType, cancelled := c.readInputWithCancel("Type (1=TCP, 2=SOCKS5, 3=HTTP, 4=Mixed)", "")
 			if !cancelled {
 				oldType := mapping.Type
-				if newType == "2" {
+				switch strings.TrimSpace(newType) {
+				case "2":
 					mapping.Type = "socks5"
-				} else {
+				case "3":
+					mapping.Type = "http"
+				case "4":
+					mapping.Type = "mixed"
+				default:
 					mapping.Type = "tcp"
 				}
 
-				// If changed from SOCKS5 to TCP, need to collect remote host/port
-				if oldType == "socks5" && mapping.Type == "tcp" {
+				// If changed to TCP, collect remote host/port
+				if oldType != "tcp" && mapping.Type == "tcp" {
 					for {
 						host, cancelled := c.readInputWithCancel("Remote Host", "")
 						if cancelled {

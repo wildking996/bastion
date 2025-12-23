@@ -109,6 +109,12 @@ const messages = {
     },
     mappings: {
       title: "映射",
+      types: {
+        tcp: "TCP",
+        socks5: "SOCKS5",
+        http: "HTTP",
+        mixed: "混合(HTTP+SOCKS5)",
+      },
       localHost: "本地主机",
       localPort: "本地端口",
       remoteHost: "远端主机",
@@ -273,6 +279,12 @@ const messages = {
     },
     mappings: {
       title: "Mappings",
+      types: {
+        tcp: "TCP",
+        socks5: "SOCKS5",
+        http: "HTTP",
+        mixed: "Mixed (HTTP+SOCKS5)",
+      },
       localHost: "Local host",
       localPort: "Local port",
       remoteHost: "Remote host",
