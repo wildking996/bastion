@@ -3,7 +3,7 @@ import { useUpdatePanel } from "../app/update_panel.js";
 const { inject } = Vue;
 
 export default {
-  name: "ViewSystemActions",
+  name: "ViewHome",
   setup() {
     const t = inject("t");
     const openConfirmDialog = inject("openConfirmDialog");
@@ -18,7 +18,7 @@ export default {
     <div style="max-width: 900px; margin: 0 auto;">
       <el-row justify="space-between" align="middle" style="margin-bottom: 12px" :gutter="12">
         <el-col :span="24">
-          <h2 style="margin: 0">{{ t.navUpdate }}</h2>
+          <h2 style="margin: 0">{{ t.navHomeUpdates }}</h2>
         </el-col>
       </el-row>
 

@@ -69,12 +69,14 @@ const app = createApp({
     });
 
     const groupIcons = {
+      home: "House",
       manage: "Tools",
       logs: "Document",
       system: "Setting",
     };
 
     const viewIcons = {
+      "/home": "House",
       "/bastions": "Connection",
       "/mappings": "Share",
       "/logs/http": "Document",

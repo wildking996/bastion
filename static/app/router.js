@@ -1,4 +1,4 @@
-const DEFAULT_ROUTE = "/bastions";
+const DEFAULT_ROUTE = "/home";
 
 export function normalizeRoute(raw) {
   let path = (raw || "").trim();

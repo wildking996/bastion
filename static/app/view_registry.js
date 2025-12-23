@@ -1,10 +1,17 @@
 export const GROUPS = [
+  { key: "home", titleKey: "navHome" },
   { key: "manage", titleKey: "navManage" },
   { key: "logs", titleKey: "navLogs" },
   { key: "system", titleKey: "navSystem" },
 ];
 
 export const VIEWS = [
+  {
+    path: "/home",
+    group: "home",
+    titleKey: "navHomeUpdates",
+    loader: () => import("../views/home.js"),
+  },
   {
     path: "/bastions",
     group: "manage",
@@ -44,4 +51,3 @@ export function getViewByPath(path) {
 export function getViewsByGroup(groupKey) {
   return VIEWS.filter((v) => v.group === groupKey);
 }
-
