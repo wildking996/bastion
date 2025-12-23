@@ -69,7 +69,6 @@ const app = createApp({
     });
 
     const groupIcons = {
-      home: "House",
       manage: "Tools",
       logs: "Document",
       system: "Setting",
@@ -183,6 +182,10 @@ const app = createApp({
       return grouped;
     });
 
+    const visibleGroups = computed(() => {
+      return GROUPS.filter((g) => (viewsByGroup.value[g.key] || []).length > 0);
+    });
+
     provide("t", t);
     provide("currentLang", currentLang);
     provide("navigate", navigate);
@@ -208,6 +211,7 @@ const app = createApp({
       asideWidth,
       breadcrumbItems,
       groups: GROUPS,
+      visibleGroups,
       groupIcons,
       viewIcons,
       viewsByGroup,
@@ -237,41 +241,20 @@ const app = createApp({
   template: `
     <el-config-provider :locale="elLocale">
       <el-container class="app-shell">
-        <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
-          <el-row justify="space-between" align="middle" style="height: 100%;" :gutter="10">
-            <el-col :span="12" style="min-width: 260px">
+                <el-header height="56px" style="border-bottom: 1px solid var(--el-border-color-lighter);">
+          <div style="height:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="min-width:0;display:flex;align-items:center;gap:10px;">
+              <el-button :icon="collapsed ? 'Expand' : 'Fold'" circle @click="toggleSidebar"></el-button>
+              <div style="min-width:0;">
+                <el-text size="large" tag="b">{{ t.console }}</el-text>
+                <el-breadcrumb separator="/" style="margin-top:2px;">
+                  <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
+                </el-breadcrumb>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;flex:0 0 auto;">
               <el-space :size="10" alignment="center">
-                <el-button
-                  :icon="collapsed ? 'Expand' : 'Fold'"
-                  circle
-                  @click="toggleSidebar"
-                ></el-button>
-
-                <el-space direction="vertical" :size="2">
-                  <el-text size="large" tag="b">{{ t.console }}</el-text>
-                  <el-breadcrumb separator="/">
-                    <el-breadcrumb-item v-for="(b, i) in breadcrumbItems" :key="i">{{ b.label }}</el-breadcrumb-item>
-                  </el-breadcrumb>
-                </el-space>
-              </el-space>
-            </el-col>
-
-            <el-col :span="12" style="display:flex;justify-content:flex-end">
-              <el-space :size="10" alignment="center">
-                <el-dropdown @command="switchLanguage">
-                  <el-button circle aria-label="language">
-                    <el-icon><ChatLineRound /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="zh" :disabled="currentLang === 'zh'">中文</el-dropdown-item>
-                      <el-dropdown-item command="en" :disabled="currentLang === 'en'">English</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-
-                <el-divider direction="vertical" />
-
                 <el-tooltip :content="t.refresh" placement="bottom">
                   <template #reference>
                     <el-button circle @click="refreshPage" aria-label="refresh">
@@ -287,10 +270,25 @@ const app = createApp({
                     </el-button>
                   </template>
                 </el-tooltip>
+
+                <el-divider direction="vertical" />
+
+                <el-dropdown @command="switchLanguage">
+                  <el-button circle aria-label="language">
+                    <el-icon><ChatLineRound /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="zh" :disabled="currentLang === 'zh'">中文</el-dropdown-item>
+                      <el-dropdown-item command="en" :disabled="currentLang === 'en'">English</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </el-space>
-            </el-col>
-          </el-row>
+            </div>
+          </div>
         </el-header>
+
 
         <el-container class="app-body">
           <el-aside :width="asideWidth" class="app-aside">
@@ -303,7 +301,12 @@ const app = createApp({
               class="aside-menu"
               @select="onSelectMenu"
             >
-              <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
+              <el-menu-item index="/home">
+                <el-icon><House /></el-icon>
+                <span>{{ t.navHome }}</span>
+              </el-menu-item>
+
+              <el-sub-menu v-for="g in visibleGroups" :key="g.key" :index="g.key">
                 <template #title>
                   <el-icon>
                     <component :is="groupIcons[g.key]" />

@@ -1,5 +1,4 @@
 export const GROUPS = [
-  { key: "home", titleKey: "navHome" },
   { key: "manage", titleKey: "navManage" },
   { key: "logs", titleKey: "navLogs" },
   { key: "system", titleKey: "navSystem" },
@@ -8,7 +7,7 @@ export const GROUPS = [
 export const VIEWS = [
   {
     path: "/home",
-    group: "home",
+    group: null,
     titleKey: "navHomeUpdates",
     loader: () => import("../views/home.js"),
   },
@@ -40,6 +39,7 @@ export const VIEWS = [
     path: "/system/update",
     group: "system",
     titleKey: "navUpdate",
+    hiddenInMenu: true,
     loader: () => import("../views/system_update.js"),
   },
 ];
@@ -49,5 +49,5 @@ export function getViewByPath(path) {
 }
 
 export function getViewsByGroup(groupKey) {
-  return VIEWS.filter((v) => v.group === groupKey);
+  return VIEWS.filter((v) => v.group === groupKey && v.hiddenInMenu !== true);
 }
