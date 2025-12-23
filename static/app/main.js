@@ -95,12 +95,18 @@ const app = createApp({
       saveSidebarCollapsed(collapsed.value);
     };
 
-    const syncOpenGroups = async () => {
+
+    let lastOpenedGroupKey = "";
+
+    const syncOpenGroups = async ({ force = false } = {}) => {
       await nextTick();
       const menu = menuRef.value;
       if (!menu) return;
 
       const keep = activeGroup.value ? activeGroup.value.key : "";
+      if (!force && keep === lastOpenedGroupKey) return;
+      lastOpenedGroupKey = keep;
+
       for (const g of GROUPS) {
         if (g.key === keep) {
           if (typeof menu.open === "function") menu.open(g.key);
@@ -213,6 +219,7 @@ const app = createApp({
               ref="menuRef"
               :default-active="route"
               :collapse="collapsed"
+              unique-opened
               class="aside-menu"
               @select="onSelectMenu"
             >
