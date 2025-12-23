@@ -181,15 +181,21 @@ func classifyMixedProtocol(prefix []byte) string {
 	return ""
 }
 
+var httpMethodTokens = map[string]struct{}{
+	"GET":     {},
+	"POST":    {},
+	"PUT":     {},
+	"DELETE":  {},
+	"HEAD":    {},
+	"OPTIONS": {},
+	"PATCH":   {},
+	"CONNECT": {},
+	"TRACE":   {},
+}
+
 func looksLikeHTTP(p []byte) bool {
 	if len(p) < 3 {
 		return false
-	}
-
-	// Common HTTP methods for forward-proxy usage.
-	methods := map[string]struct{}{
-		"GET": {}, "POST": {}, "PUT": {}, "DELETE": {}, "HEAD": {},
-		"OPTIONS": {}, "PATCH": {}, "CONNECT": {}, "TRACE": {},
 	}
 
 	// Read token until space.
@@ -202,6 +208,6 @@ func looksLikeHTTP(p []byte) bool {
 	}
 
 	tok := strings.ToUpper(string(p[:i]))
-	_, ok := methods[tok]
+	_, ok := httpMethodTokens[tok]
 	return ok
 }
