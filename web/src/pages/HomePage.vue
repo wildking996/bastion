@@ -197,6 +197,8 @@ async function saveProxy() {
     else app.clearManualUpdateProxy();
     await loadProxy();
     ElMessage.success(t("common.save"));
+  } catch {
+    return;
   } finally {
     savingProxy.value = false;
   }

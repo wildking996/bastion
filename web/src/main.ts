@@ -22,6 +22,15 @@ setActivePinia(pinia);
 const appStore = useAppStore();
 appStore.initTheme();
 
+function applyDocumentLanguage(lang: string) {
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+}
+
+applyDocumentLanguage(appStore.language);
+appStore.$subscribe((_mutation, state) => {
+  applyDocumentLanguage(state.language);
+});
+
 syncI18nWithStore();
 
 app.use(router);
