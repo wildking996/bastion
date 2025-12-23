@@ -100,6 +100,21 @@ const app = createApp({
     const ElMessage = ElementPlus.ElMessage;
     const confirmDlg = createConfirmCodeDialog({ t, ElMessage });
 
+    const confirmDlgVisible = confirmDlg.visible;
+    const confirmDlgTitle = confirmDlg.title;
+    const confirmDlgAlertTitle = confirmDlg.alertTitle;
+    const confirmDlgActionType = confirmDlg.actionType;
+    const confirmDlgCode = confirmDlg.code;
+    const confirmDlgExpiryText = confirmDlg.expiryText;
+    const confirmDlgInput = confirmDlg.input;
+    const confirmDlgGenerating = confirmDlg.generating;
+    const confirmDlgApplying = confirmDlg.applying;
+    const confirmDlgCanApply = confirmDlg.canApply;
+
+    const confirmDlgGenerate = confirmDlg.generate;
+    const confirmDlgSubmit = confirmDlg.submit;
+    const confirmDlgClose = confirmDlg.close;
+
     const openConfirmDialog = (opts) => confirmDlg.open(opts);
 
     const openShutdownConfirm = () => {
@@ -202,7 +217,19 @@ const app = createApp({
       switchLanguage,
       toggleSidebar,
       openShutdownConfirm,
-      confirmDlg,
+      confirmDlgVisible,
+      confirmDlgTitle,
+      confirmDlgAlertTitle,
+      confirmDlgActionType,
+      confirmDlgCode,
+      confirmDlgExpiryText,
+      confirmDlgInput,
+      confirmDlgGenerating,
+      confirmDlgApplying,
+      confirmDlgCanApply,
+      confirmDlgGenerate,
+      confirmDlgSubmit,
+      confirmDlgClose,
     };
   },
   template: `
@@ -289,52 +316,52 @@ const app = createApp({
       </el-container>
 
       <el-dialog
-        v-model="confirmDlg.visible"
-        :title="confirmDlg.title"
+        v-model="confirmDlgVisible"
+        :title="confirmDlgTitle"
         width="520px"
         :close-on-click-modal="false"
-        @close="confirmDlg.close"
+        @close="confirmDlgClose"
       >
         <el-alert
           type="warning"
           :closable="false"
-          :title="confirmDlg.alertTitle"
+          :title="confirmDlgAlertTitle"
           show-icon
         ></el-alert>
 
         <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <el-button type="primary" :loading="confirmDlg.generating" @click="confirmDlg.generate">
+          <el-button type="primary" :loading="confirmDlgGenerating" @click="confirmDlgGenerate">
             {{ t.generateCode }}
           </el-button>
 
-          <template v-if="confirmDlg.code">
+          <template v-if="confirmDlgCode">
             <div class="muted">
               {{ t.confirmationCode }}
-              <span v-if="confirmDlg.expiryText" class="muted">({{ t.expiresIn }}: {{ confirmDlg.expiryText }})</span>
+              <span v-if="confirmDlgExpiryText" class="muted">({{ t.expiresIn }}: {{ confirmDlgExpiryText }})</span>
             </div>
-            <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ confirmDlg.code }}</div>
+            <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ confirmDlgCode }}</div>
           </template>
 
           <el-input
-            v-model="confirmDlg.input"
+            v-model="confirmDlgInput"
             maxlength="6"
             :placeholder="t.enterCode"
             style="width: 240px"
-            @keyup.enter="confirmDlg.submit"
+            @keyup.enter="confirmDlgSubmit"
           ></el-input>
 
           <el-button
-            :type="confirmDlg.actionType"
-            :loading="confirmDlg.applying"
-            :disabled="!confirmDlg.canApply"
-            @click="confirmDlg.submit"
+            :type="confirmDlgActionType"
+            :loading="confirmDlgApplying"
+            :disabled="!confirmDlgCanApply"
+            @click="confirmDlgSubmit"
           >
             {{ t.submitCode }}
           </el-button>
         </div>
 
         <template #footer>
-          <el-button @click="confirmDlg.close">{{ t.close }}</el-button>
+          <el-button @click="confirmDlgClose">{{ t.close }}</el-button>
         </template>
       </el-dialog>
     </el-config-provider>
