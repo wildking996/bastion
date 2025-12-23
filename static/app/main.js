@@ -51,6 +51,12 @@ const app = createApp({
     const activeComponent = shallowRef(null);
     const componentCache = new Map();
 
+    const viewTitle = computed(() => {
+      const view = getViewByPath(route.value);
+      if (!view) return t.value.console;
+      return t.value[view.titleKey] || t.value.console;
+    });
+
     const shutdownDialogVisible = ref(false);
     const shutdownCode = ref("");
     const shutdownExpiresAt = ref(0);
@@ -59,6 +65,12 @@ const app = createApp({
     const generating = ref(false);
     const shuttingDown = ref(false);
     let shutdownExpiryTimer = null;
+
+    const groupIcons = {
+      manage: "Tools",
+      logs: "Document",
+      system: "Setting",
+    };
 
     const stopShutdownTimer = () => {
       if (!shutdownExpiryTimer) return;
@@ -129,6 +141,7 @@ const app = createApp({
     const refreshPage = () => window.location.reload();
 
     const switchLanguage = (lang) => {
+      if (!lang || lang === currentLang.value) return;
       i18n.setLanguage(lang);
       currentLang.value = lang;
       t.value = i18n.getAll();
@@ -180,6 +193,7 @@ const app = createApp({
       ensureDefaultRoute();
       setRoute(getCurrentRoute());
       stopRouteListener = onRouteChange(setRoute);
+      document.title = titleForRoute(route.value, currentLang.value);
     });
 
     onUnmounted(() => {
@@ -191,7 +205,9 @@ const app = createApp({
       elLocale,
       currentLang,
       t,
+      viewTitle,
       groups: GROUPS,
+      groupIcons,
       viewsByGroup,
       defaultOpenGroups,
       route,
@@ -214,96 +230,109 @@ const app = createApp({
   },
   template: `
     <el-config-provider :locale="elLocale">
-      <div class="wrap">
-        <div class="topbar">
-          <div class="topbar-left">
-            <h2 style="margin: 0">{{ t.console }}</h2>
-          </div>
-          <div class="topbar-right">
-            <el-button @click="showShutdownDialog" icon="SwitchButton" type="danger">{{ t.shutdown }}</el-button>
-            <div class="lang-toggle">
-              <button class="lang-btn" :class="{ active: currentLang === 'zh' }" @click="switchLanguage('zh')">中文</button>
-              <button class="lang-btn" :class="{ active: currentLang === 'en' }" @click="switchLanguage('en')">English</button>
-            </div>
-            <el-button @click="refreshPage" icon="Refresh" circle></el-button>
-          </div>
-        </div>
+      <div class="app-shell">
+        <el-container>
+          <el-header class="app-header" height="auto">
+            <el-row justify="space-between" align="middle">
+              <el-col :span="14" style="min-width: 220px">
+                <div class="brand">
+                  <div class="brand-title">{{ t.console }}</div>
+                  <div class="brand-subtitle">{{ viewTitle }}</div>
+                </div>
+              </el-col>
+              <el-col :span="10" style="display:flex;justify-content:flex-end">
+                <el-space wrap>
+                  <el-radio-group v-model="currentLang" size="small" @change="switchLanguage">
+                    <el-radio-button label="zh">中文</el-radio-button>
+                    <el-radio-button label="en">English</el-radio-button>
+                  </el-radio-group>
+                  <el-button icon="Refresh" circle @click="refreshPage"></el-button>
+                  <el-button icon="SwitchButton" type="danger" @click="showShutdownDialog">{{ t.shutdown }}</el-button>
+                </el-space>
+              </el-col>
+            </el-row>
+          </el-header>
 
-        <div class="layout">
-          <aside class="sidebar">
-            <el-menu
-              :default-active="route"
-              :default-openeds="defaultOpenGroups"
-              class="sidebar-menu"
-              background-color="#0f1115"
-              text-color="#cfd2d6"
-              active-text-color="#409eff"
-              @select="onSelectMenu"
-              @open="onOpenGroup"
-              @close="onCloseGroup"
-            >
-              <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
-                <template #title>
-                  <span>{{ t[g.titleKey] }}</span>
-                </template>
-                <el-menu-item
-                  v-for="v in viewsByGroup[g.key]"
-                  :key="v.path"
-                  :index="v.path"
+          <el-container class="app-body">
+            <el-aside width="260px" class="app-aside">
+              <el-card class="aside-card" shadow="never">
+                <el-menu
+                  :default-active="route"
+                  :default-openeds="defaultOpenGroups"
+                  class="aside-menu"
+                  @select="onSelectMenu"
+                  @open="onOpenGroup"
+                  @close="onCloseGroup"
                 >
-                  {{ t[v.titleKey] }}
-                </el-menu-item>
-              </el-sub-menu>
-            </el-menu>
-          </aside>
+                  <el-sub-menu v-for="g in groups" :key="g.key" :index="g.key">
+                    <template #title>
+                      <el-icon>
+                        <component :is="groupIcons[g.key]" />
+                      </el-icon>
+                      <span>{{ t[g.titleKey] }}</span>
+                    </template>
+                    <el-menu-item
+                      v-for="v in viewsByGroup[g.key]"
+                      :key="v.path"
+                      :index="v.path"
+                    >
+                      {{ t[v.titleKey] }}
+                    </el-menu-item>
+                  </el-sub-menu>
+                </el-menu>
+              </el-card>
+            </el-aside>
 
-          <main class="main">
-            <keep-alive>
-              <component :is="activeComponent" />
-            </keep-alive>
-          </main>
-        </div>
+            <el-main class="app-main">
+              <div class="main-surface">
+                <keep-alive>
+                  <component :is="activeComponent" />
+                </keep-alive>
+              </div>
+            </el-main>
+          </el-container>
+        </el-container>
+
+        <el-dialog v-model="shutdownDialogVisible" :title="t.shutdown" width="500px">
+          <div style="margin-bottom: 20px">
+            <el-alert :title="t.shutdownConfirm" type="warning" :closable="false"></el-alert>
+          </div>
+
+          <div v-if="!shutdownCode" style="text-align: center">
+            <el-button type="primary" @click="generateShutdownCode" :loading="generating">
+              {{ t.generateCode }}
+            </el-button>
+          </div>
+
+          <div v-else>
+            <el-descriptions :column="1" border>
+              <el-descriptions-item :label="t.confirmationCode">
+                <span class="code" style="font-size: 24px; font-weight: 700; color: var(--el-color-primary)">{{ shutdownCode }}</span>
+              </el-descriptions-item>
+              <el-descriptions-item :label="t.expiresIn">
+                <el-tag type="info">{{ shutdownCodeExpiry }}</el-tag>
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <el-form style="margin-top: 20px" @submit.prevent="verifyAndShutdown">
+              <el-form-item :label="t.enterCode">
+                <el-input v-model="inputCode" maxlength="6" :placeholder="t.enterCode" clearable></el-input>
+              </el-form-item>
+              <el-form-item>
+                <el-button
+                  type="danger"
+                  @click="verifyAndShutdown"
+                  :loading="shuttingDown"
+                  :disabled="(inputCode || '').length !== 6"
+                >
+                  {{ t.shutdownSystem }}
+                </el-button>
+                <el-button @click="shutdownDialogVisible = false">{{ t.cancel }}</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-dialog>
       </div>
-
-      <el-dialog v-model="shutdownDialogVisible" :title="t.shutdown" width="500px">
-        <div style="margin-bottom: 20px">
-          <el-alert :title="t.shutdownConfirm" type="warning" :closable="false"></el-alert>
-        </div>
-
-        <div v-if="!shutdownCode" style="text-align: center">
-          <el-button type="primary" @click="generateShutdownCode" :loading="generating">
-            {{ t.generateCode }}
-          </el-button>
-        </div>
-
-        <div v-else>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item :label="t.confirmationCode">
-              <span style="font-size: 24px; font-weight: bold; color: #409eff; font-family: monospace;">{{ shutdownCode }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t.expiresIn">
-              <el-tag type="info">{{ shutdownCodeExpiry }}</el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <el-form style="margin-top: 20px" @submit.prevent="verifyAndShutdown">
-            <el-form-item :label="t.enterCode">
-              <el-input v-model="inputCode" maxlength="6" :placeholder="t.enterCode" clearable></el-input>
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="danger"
-                @click="verifyAndShutdown"
-                :loading="shuttingDown"
-                :disabled="(inputCode || '').length !== 6"
-              >
-                {{ t.shutdownSystem }}
-              </el-button>
-              <el-button @click="shutdownDialogVisible = false">{{ t.cancel }}</el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-dialog>
     </el-config-provider>
   `,
 });

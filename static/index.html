@@ -19,63 +19,116 @@
     <script src="https://unpkg.com/echarts@5/dist/echarts.min.js"></script>
 
     <style>
+      :root {
+        --el-color-primary: #2563eb;
+      }
+
+      html,
       body {
-        background: #0b0c10;
-        color: #e7e9ea;
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(
+            1200px circle at 10% 10%,
+            rgba(37, 99, 235, 0.10),
+            transparent 55%
+          ),
+          radial-gradient(
+            900px circle at 90% 20%,
+            rgba(56, 189, 248, 0.12),
+            transparent 50%
+          ),
+          #f6f8fc;
+        color: #111827;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
           "Helvetica Neue", Arial;
-        margin: 0;
+      }
+
+      #app {
+        height: 100%;
+      }
+
+      .app-shell {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 16px;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .app-header {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .brand-title {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        line-height: 1.2;
+      }
+
+      .brand-subtitle {
+        font-size: 12px;
+        color: #6b7280;
+      }
+
+      .app-body {
+        height: calc(100% - 76px);
+      }
+
+      .app-aside {
+        padding-right: 14px;
+        box-sizing: border-box;
+      }
+
+      .aside-card {
+        height: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        background: rgba(255, 255, 255, 0.80);
+        backdrop-filter: blur(10px);
+      }
+
+      .aside-card .el-card__body {
+        padding: 10px;
+      }
+
+      .aside-menu {
+        border-right: none;
+        background: transparent;
+      }
+
+      .app-main {
         padding: 0;
       }
 
-      .wrap {
-        max-width: 1600px;
-        margin: 18px auto;
-        padding: 18px;
-        background: #111418;
+      .main-surface {
+        height: 100%;
         border-radius: 14px;
-      }
-
-      .layout {
-        display: grid;
-        grid-template-columns: 260px 1fr;
-        gap: 16px;
-        align-items: start;
-      }
-
-      .sidebar {
-        position: sticky;
-        top: 18px;
-        align-self: start;
-        background: #0f1115;
-        border-radius: 12px;
-        overflow: hidden;
-      }
-
-      .sidebar-menu {
-        border-right: none;
-      }
-
-      .main {
-        min-width: 0;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        gap: 10px;
-      }
-
-      .topbar-right {
-        display: flex;
-        gap: 10px;
-        align-items: center;
+        border: 1px solid rgba(17, 24, 39, 0.08);
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(10px);
+        padding: 14px;
+        box-sizing: border-box;
+        overflow: auto;
       }
 
       .muted {
-        opacity: 0.75;
+        color: #6b7280;
       }
 
       .code {
@@ -88,72 +141,44 @@
         display: inline-block;
       }
 
-      /* Selected/editing card highlight */
       .editing-card {
-        border: 1px solid #409eff !important;
+        border: 1px solid var(--el-color-primary) !important;
       }
 
-      /* Language toggle */
-      .lang-toggle {
-        display: flex;
-        gap: 5px;
-      }
-      .lang-btn {
-        padding: 4px 12px;
-        border: 1px solid #409eff;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.3s;
-        background: transparent;
-        color: #409eff;
-      }
-      .lang-btn.active {
-        background: #409eff;
-        color: #fff;
-      }
-      .lang-btn:hover:not(.active) {
-        background: rgba(64, 158, 255, 0.1);
-      }
-
-      /* Logs/Error view shared styles */
       .log-content {
         max-width: 100%;
         overflow-x: auto;
         white-space: pre-wrap;
         word-break: break-all;
-        background: #1a1d23;
-        padding: 15px;
-        border-radius: 4px;
+        background: #f3f5f9;
+        border: 1px solid rgba(17, 24, 39, 0.10);
+        padding: 14px;
+        border-radius: 10px;
         font-size: 12px;
         line-height: 1.6;
-        max-height: 500px;
+        max-height: 520px;
         overflow-y: auto;
       }
+
       .time-cell {
-        color: #909399;
+        color: #6b7280;
         font-size: 11px;
       }
+
       .size-cell {
         font-size: 11px;
+        color: #374151;
       }
-      .has-response {
-        color: #67c23a;
-      }
-      .no-response {
-        color: #909399;
-      }
-      .action-buttons .el-button {
-        width: 100% !important;
-        justify-content: center;
-        margin-left: 0 !important;
-      }
+
       .el-descriptions__body .el-descriptions__cell {
         word-break: break-all;
         overflow-wrap: break-word;
       }
+
       .el-descriptions__label {
         white-space: nowrap;
       }
+
       .el-descriptions__content {
         word-break: break-all;
         overflow-wrap: break-word;
@@ -161,11 +186,12 @@
       }
 
       .error-detail {
-        max-height: 400px;
+        max-height: 420px;
         overflow-y: auto;
-        background: #1a1d23;
+        background: #f3f5f9;
+        border: 1px solid rgba(17, 24, 39, 0.10);
         padding: 12px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-top: 10px;
       }
 
@@ -173,7 +199,7 @@
         white-space: pre-wrap;
         word-break: break-all;
         font-size: 11px;
-        color: #909399;
+        color: #6b7280;
       }
     </style>
   </head>
