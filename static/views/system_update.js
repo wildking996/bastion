@@ -307,7 +307,7 @@ export default {
                 <b>{{ t.update }}</b>
                 <el-space wrap>
                   <el-button type="primary" :loading="updateChecking" @click="checkForUpdate">{{ t.checkUpdate }}</el-button>
-                  <el-button type="warning" :disabled="!updateAvailable" @click="openUpdateConfirm">{{ t.generateCode }}</el-button>
+                  <el-button type="warning" :disabled="!checked || !updateAvailable" @click="openUpdateConfirm">{{ t.confirmUpdate }}</el-button>
                 </el-space>
               </div>
             </template>
@@ -381,7 +381,6 @@ export default {
 
         <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <el-button
-            v-if="!confirmDlg.code || confirmDlg.expiryText === t.codeExpired"
             type="primary"
             :loading="confirmDlg.generating"
             @click="confirmDlg.generate({ onGenerate: onGenerateCode })"
@@ -389,30 +388,30 @@ export default {
             {{ t.generateCode }}
           </el-button>
 
-          <template v-else>
+          <template v-if="confirmDlg.code">
             <div class="muted">
               {{ t.confirmationCode }}
               <span v-if="confirmDlg.expiryText" class="muted">({{ t.expiresIn }}: {{ confirmDlg.expiryText }})</span>
             </div>
             <div class="code" style="font-size: 22px; font-weight: 700; color: var(--el-color-primary)">{{ confirmDlg.code }}</div>
-
-            <el-input
-              v-model="confirmDlg.input"
-              maxlength="6"
-              :placeholder="t.enterCode"
-              style="width: 240px"
-              @keyup.enter="confirmDlg.apply({ onApply: onApplyAction })"
-            ></el-input>
-
-            <el-button
-              v-if="confirmDlg.canApply"
-              :type="confirmDlg.actionType"
-              :loading="confirmDlg.applying"
-              @click="confirmDlg.apply({ onApply: onApplyAction })"
-            >
-              {{ confirmDlg.actionLabel }}
-            </el-button>
           </template>
+
+          <el-input
+            v-model="confirmDlg.input"
+            maxlength="6"
+            :placeholder="t.enterCode"
+            style="width: 240px"
+            @keyup.enter="confirmDlg.apply({ onApply: onApplyAction })"
+          ></el-input>
+
+          <el-button
+            :type="confirmDlg.actionType"
+            :loading="confirmDlg.applying"
+            :disabled="!confirmDlg.canApply"
+            @click="confirmDlg.apply({ onApply: onApplyAction })"
+          >
+            {{ t.submitCode }}
+          </el-button>
         </div>
 
         <template #footer>
