@@ -304,3 +304,24 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 ### 许可
 
 参见 `LICENSE`。
+
+### Web UI development
+
+The production UI is bundled into `static/` and served from `/web`.
+
+```bash
+cd web
+pnpm install
++pnpm run build
+```
+
+For local HMR during development:
+
+```bash
+# terminal 1
+cd web
+pnpm run dev
+
+# terminal 2
+go run .
+```

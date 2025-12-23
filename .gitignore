@@ -49,3 +49,7 @@ rsrc.syso
 
 # Icon file (optional - remove this line if you want to commit your icon)
 # icon.ico
+
+# Web UI
+web/node_modules/
+web/.vite/
