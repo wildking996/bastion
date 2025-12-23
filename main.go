@@ -121,14 +121,6 @@ func main() {
 	}
 	r.StaticFS("/web", http.FS(staticFS))
 
-	// Legacy pages redirect (pre-hash-router pages)
-	r.GET("/web/logs.html", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/web/index.html#/logs/http")
-	})
-	r.GET("/web/errors.html", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/web/index.html#/logs/errors")
-	})
-
 	// Root path redirect
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/web/index.html")
