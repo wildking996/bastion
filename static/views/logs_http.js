@@ -8,6 +8,9 @@ const {
   onUnmounted,
 } = Vue;
 
+const PAGINATION_LAYOUT = "total, sizes, prev, pager, next, jumper";
+const PAGE_SIZES = [10, 20, 50, 100];
+
 export default {
   name: "ViewHTTPLogs",
   setup() {
@@ -399,6 +402,8 @@ export default {
       methodOptions,
       applyFilters,
       resetFilters,
+      PAGINATION_LAYOUT,
+      PAGE_SIZES,
     };
   },
   template: `
@@ -535,7 +540,8 @@ export default {
         <div style="display:flex;justify-content:flex-end;margin-top: 12px;">
           <el-pagination
             background
-            layout="sizes, prev, pager, next"
+            :layout="PAGINATION_LAYOUT"
+            :page-sizes="PAGE_SIZES"
             :total="total"
             :page-size="pageSize"
             :current-page="currentPage"

@@ -22,6 +22,12 @@ const i18nConfig = {
     reset: "重置",
     close: "关闭",
     confirm: "确定",
+    start: "启动",
+    stop: "停止",
+    running: "运行中",
+    stopped: "已停止",
+    deleted: "已删除",
+    copyModify: "复制修改",
 
     // Bastion section
     addBastion: "添加跳板机",
@@ -76,6 +82,7 @@ const i18nConfig = {
     configCopiedPortIncremented: "配置已复制，本地端口已自动+1",
     autoStart: "自动启动",
     autoStartUpdated: "自动启动设置已更新",
+    mappingNotRunning: "映射未运行，无法查看实时流量",
 
     // Logs page
     httpTrafficLogs: "HTTP 流量日志",
@@ -230,6 +237,12 @@ const i18nConfig = {
     reset: "Reset",
     close: "Close",
     confirm: "Confirm",
+    start: "Start",
+    stop: "Stop",
+    running: "Running",
+    stopped: "Stopped",
+    deleted: "Deleted",
+    copyModify: "Duplicate",
 
     // Bastion section
     addBastion: "Add Bastion",
@@ -284,6 +297,7 @@ const i18nConfig = {
     configCopiedPortIncremented: "Config copied, local port auto-incremented",
     autoStart: "Auto Start",
     autoStartUpdated: "Auto-start setting updated",
+    mappingNotRunning: "Mapping is not running",
 
     // Logs page
     httpTrafficLogs: "HTTP Traffic Logs",

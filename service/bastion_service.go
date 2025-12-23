@@ -26,6 +26,28 @@ func (s *BastionService) List() ([]models.Bastion, error) {
 	return bastions, nil
 }
 
+// ListPage returns bastions with pagination.
+func (s *BastionService) ListPage(page, pageSize int) ([]models.Bastion, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	var total int64
+	if err := s.db.Model(&models.Bastion{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count bastions: %w", err)
+	}
+
+	var bastions []models.Bastion
+	offset := (page - 1) * pageSize
+	if err := s.db.Order("id desc").Offset(offset).Limit(pageSize).Find(&bastions).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list bastions: %w", err)
+	}
+	return bastions, total, nil
+}
+
 // Get fetches a bastion by ID
 func (s *BastionService) Get(id uint) (*models.Bastion, error) {
 	var bastion models.Bastion

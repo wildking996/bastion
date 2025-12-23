@@ -83,6 +83,36 @@ func (e *ErrorLogger) GetErrorLogs() []*models.ErrorLog {
 	return result
 }
 
+// QueryErrorLogs returns error logs with pagination, ordered by latest first.
+func (e *ErrorLogger) QueryErrorLogs(page, pageSize int) ([]*models.ErrorLog, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	total := len(e.logs)
+	start := (page - 1) * pageSize
+	if start >= total {
+		return []*models.ErrorLog{}, total
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+
+	result := make([]*models.ErrorLog, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, e.logs[total-1-i])
+	}
+
+	return result, total
+}
+
 // GetErrorLogByID returns a single error log by ID
 func (e *ErrorLogger) GetErrorLogByID(id int) *models.ErrorLog {
 	e.mu.RLock()

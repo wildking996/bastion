@@ -35,6 +35,31 @@ var shutdownMgr = &ShutdownManager{}
 
 // ListBastions lists all bastions
 func ListBastions(c *gin.Context) {
+	pageStr := strings.TrimSpace(c.Query("page"))
+	pageSizeStr := strings.TrimSpace(c.Query("page_size"))
+	if pageStr != "" || pageSizeStr != "" {
+		page := 1
+		pageSize := 20
+		if pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+		if pageSizeStr != "" {
+			if s, err := strconv.Atoi(pageSizeStr); err == nil && s > 0 {
+				pageSize = s
+			}
+		}
+
+		bastions, total, err := service.GlobalServices.Bastion.ListPage(page, pageSize)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": bastions, "page": page, "page_size": pageSize, "total": total})
+		return
+	}
+
 	bastions, err := service.GlobalServices.Bastion.List()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
@@ -143,6 +168,31 @@ func DeleteBastion(c *gin.Context) {
 
 // ListMappings lists all mappings
 func ListMappings(c *gin.Context) {
+	pageStr := strings.TrimSpace(c.Query("page"))
+	pageSizeStr := strings.TrimSpace(c.Query("page_size"))
+	if pageStr != "" || pageSizeStr != "" {
+		page := 1
+		pageSize := 20
+		if pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+		if pageSizeStr != "" {
+			if s, err := strconv.Atoi(pageSizeStr); err == nil && s > 0 {
+				pageSize = s
+			}
+		}
+
+		mappings, total, err := service.GlobalServices.Mapping.ListPage(page, pageSize)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": mappings, "page": page, "page_size": pageSize, "total": total})
+		return
+	}
+
 	mappings, err := service.GlobalServices.Mapping.List()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
@@ -662,6 +712,27 @@ func GetPrometheusMetrics(c *gin.Context) {
 
 // GetErrorLogs returns recent error logs
 func GetErrorLogs(c *gin.Context) {
+	pageStr := strings.TrimSpace(c.Query("page"))
+	pageSizeStr := strings.TrimSpace(c.Query("page_size"))
+	if pageStr != "" || pageSizeStr != "" {
+		page := 1
+		pageSize := 20
+		if pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+		if pageSizeStr != "" {
+			if s, err := strconv.Atoi(pageSizeStr); err == nil && s > 0 {
+				pageSize = s
+			}
+		}
+
+		logs, total := core.ErrorLoggerInstance.QueryErrorLogs(page, pageSize)
+		c.JSON(http.StatusOK, gin.H{"data": logs, "page": page, "page_size": pageSize, "total": total})
+		return
+	}
+
 	logs := core.ErrorLoggerInstance.GetErrorLogs()
 	c.JSON(http.StatusOK, logs)
 }

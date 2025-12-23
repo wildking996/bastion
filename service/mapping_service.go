@@ -65,6 +65,55 @@ func (s *MappingService) List() ([]models.MappingRead, error) {
 	return result, nil
 }
 
+// ListPage returns mappings with pagination (including runtime status).
+func (s *MappingService) ListPage(page, pageSize int) ([]models.MappingRead, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	var total int64
+	if err := s.db.Model(&models.Mapping{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count mappings: %w", err)
+	}
+
+	var mappings []models.Mapping
+	offset := (page - 1) * pageSize
+	if err := s.db.Order("local_port asc").Order("id asc").Offset(offset).Limit(pageSize).Find(&mappings).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list mappings: %w", err)
+	}
+
+	// Collect running sessions
+	s.state.RLock()
+	runningIDs := make(map[string]bool)
+	for id := range s.state.Sessions {
+		runningIDs[id] = true
+	}
+	s.state.RUnlock()
+
+	// Build response objects
+	result := make([]models.MappingRead, len(mappings))
+	for i, m := range mappings {
+		result[i] = models.MappingRead{
+			ID:         m.ID,
+			LocalHost:  m.LocalHost,
+			LocalPort:  m.LocalPort,
+			RemoteHost: m.RemoteHost,
+			RemotePort: m.RemotePort,
+			Chain:      m.GetChain(),
+			AllowCIDRs: m.GetAllowCIDRs(),
+			DenyCIDRs:  m.GetDenyCIDRs(),
+			Type:       m.Type,
+			AutoStart:  m.AutoStart,
+			Running:    runningIDs[m.ID],
+		}
+	}
+
+	return result, total, nil
+}
+
 // Get fetches a mapping by ID
 func (s *MappingService) Get(id string) (*models.Mapping, error) {
 	var mapping models.Mapping
