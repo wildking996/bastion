@@ -28,9 +28,40 @@ function hasKey(key: string): boolean {
   return Boolean((i18n.global as any).te?.(key));
 }
 
+function firstOwner(data: any): { pid?: number; exe?: string; name?: string } | null {
+  const owners = data?.owners;
+  if (!Array.isArray(owners) || owners.length === 0) return null;
+  const o = owners[0];
+  if (!o || typeof o !== "object") return null;
+  return {
+    pid: typeof o.pid === "number" ? o.pid : undefined,
+    exe: typeof o.exe === "string" ? o.exe : undefined,
+    name: typeof o.name === "string" ? o.name : undefined,
+  };
+}
+
+function resourceBusyMessage(data: any): string {
+  const addr =
+    (typeof data?.attempt?.addr === "string" && data.attempt.addr) ||
+    (typeof data?.addr === "string" && data.addr) ||
+    "";
+
+  const owner = firstOwner(data);
+  if (owner?.pid) {
+    const exe = (owner.exe || owner.name || "").trim();
+    if (addr && exe) return t("apiError.RESOURCE_BUSY_OWNER_ADDR", { addr, pid: owner.pid, exe });
+    if (addr) return t("apiError.RESOURCE_BUSY_PID_ADDR", { addr, pid: owner.pid });
+    if (exe) return t("apiError.RESOURCE_BUSY_OWNER", { pid: owner.pid, exe });
+    return t("apiError.RESOURCE_BUSY_PID", { pid: owner.pid });
+  }
+
+  if (addr) return t("apiError.RESOURCE_BUSY_ADDR", { addr });
+  return t("apiError.RESOURCE_BUSY");
+}
+
 function apiCodeMessage(code: string, data: any): string {
-  if (code === "RESOURCE_BUSY" && data?.addr) {
-    return t("apiError.RESOURCE_BUSY_ADDR", { addr: String(data.addr) });
+  if (code === "RESOURCE_BUSY") {
+    return resourceBusyMessage(data);
   }
 
   const key = `apiError.${code}`;
