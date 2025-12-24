@@ -68,7 +68,17 @@ func (c *Client) doRequest(method, path string, body interface{}) (*http.Respons
 func (c *Client) handleResponse(resp *http.Response, result interface{}) error {
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyBytes, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		preview := bodyBytes
+		if len(preview) > 4096 {
+			preview = preview[:4096]
+		}
+		if len(preview) > 0 {
+			return fmt.Errorf("failed to read response body: %w (partial body: %s)", readErr, string(preview))
+		}
+		return fmt.Errorf("failed to read response body: %w", readErr)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}
