@@ -27,6 +27,19 @@ const messages = {
       languageSwitchedToZh: "已切换为中文",
       languageSwitchedToEn: "已切换为英文",
     },
+    apiError: {
+      INVALID_REQUEST: "请求参数错误",
+      NOT_FOUND: "资源不存在",
+      CONFLICT: "资源冲突",
+      RESOURCE_BUSY: "资源忙（端口占用）",
+      RESOURCE_BUSY_ADDR: "资源忙（端口占用）：{addr}",
+      BAD_GATEWAY: "网关错误",
+      INTERNAL_ERROR: "服务器内部错误",
+      NETWORK: "网络异常",
+      TIMEOUT: "请求超时",
+      UNKNOWN: "请求失败",
+    },
+
     common: {
       add: "新增",
       edit: "编辑",
@@ -197,6 +210,19 @@ const messages = {
       languageSwitchedToZh: "Switched to Chinese",
       languageSwitchedToEn: "Switched to English",
     },
+    apiError: {
+      INVALID_REQUEST: "Invalid request",
+      NOT_FOUND: "Not found",
+      CONFLICT: "Conflict",
+      RESOURCE_BUSY: "Resource busy (port in use)",
+      RESOURCE_BUSY_ADDR: "Resource busy (port in use): {addr}",
+      BAD_GATEWAY: "Bad gateway",
+      INTERNAL_ERROR: "Internal server error",
+      NETWORK: "Network error",
+      TIMEOUT: "Request timeout",
+      UNKNOWN: "Request failed",
+    },
+
     common: {
       add: "Add",
       edit: "Edit",

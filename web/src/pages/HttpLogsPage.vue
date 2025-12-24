@@ -134,7 +134,7 @@ async function fetchLogs() {
         q: q.value.trim() || undefined,
       },
     });
-    rows.value = res.data.data;
+    rows.value = res.data.items;
     total.value = res.data.total;
   } finally {
     loading.value = false;
