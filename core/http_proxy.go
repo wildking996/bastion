@@ -48,10 +48,10 @@ func NewHTTPProxySession(mapping *models.Mapping, bastions []models.Bastion) *HT
 
 // Start starts the HTTP proxy session
 func (s *HTTPProxySession) Start() error {
-	addr := fmt.Sprintf("%s:%d", s.Mapping.LocalHost, s.Mapping.LocalPort)
-	listener, err := net.Listen("tcp", addr)
+	addr := net.JoinHostPort(s.Mapping.LocalHost, strconv.Itoa(s.Mapping.LocalPort))
+	listener, err := listenTCPWithDiagnostics(s.Mapping)
 	if err != nil {
-		return NewResourceBusyError(fmt.Sprintf("Port %d is already in use", s.Mapping.LocalPort))
+		return err
 	}
 
 	s.listener = listener

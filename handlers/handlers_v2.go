@@ -202,6 +202,12 @@ func StartMappingV2(c *gin.Context) {
 			errV2(c, http.StatusNotFound, CodeNotFound, "Mapping not found", err.Error())
 			return
 		}
+
+		var portErr *core.PortInUseError
+		if errors.As(err, &portErr) {
+			respondV2(c, http.StatusConflict, CodeResourceBusy, "Local address is already in use", portErr.Detail)
+			return
+		}
 		var be *core.BastionError
 		if errors.As(err, &be) && be.Code == http.StatusConflict {
 			addr := ""

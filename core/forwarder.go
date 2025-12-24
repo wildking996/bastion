@@ -134,10 +134,10 @@ func NewSocks5Session(mapping *models.Mapping, bastions []models.Bastion) *Socks
 
 // Start launches the TCP tunnel session
 func (s *TunnelSession) Start() error {
-	addr := fmt.Sprintf("%s:%d", s.Mapping.LocalHost, s.Mapping.LocalPort)
-	listener, err := net.Listen("tcp", addr)
+	addr := net.JoinHostPort(s.Mapping.LocalHost, strconv.Itoa(s.Mapping.LocalPort))
+	listener, err := listenTCPWithDiagnostics(s.Mapping)
 	if err != nil {
-		return NewResourceBusyError(fmt.Sprintf("Port %d is already in use", s.Mapping.LocalPort))
+		return err
 	}
 
 	s.listener = listener
@@ -151,10 +151,10 @@ func (s *TunnelSession) Start() error {
 
 // Start launches the SOCKS5 session
 func (s *Socks5Session) Start() error {
-	addr := fmt.Sprintf("%s:%d", s.Mapping.LocalHost, s.Mapping.LocalPort)
-	listener, err := net.Listen("tcp", addr)
+	addr := net.JoinHostPort(s.Mapping.LocalHost, strconv.Itoa(s.Mapping.LocalPort))
+	listener, err := listenTCPWithDiagnostics(s.Mapping)
 	if err != nil {
-		return NewResourceBusyError(fmt.Sprintf("Port %d is already in use", s.Mapping.LocalPort))
+		return err
 	}
 
 	s.listener = listener
