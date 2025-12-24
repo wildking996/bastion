@@ -189,7 +189,7 @@ func UpdateMapping(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"detail": "mapping is running; stop it before updating"})
 			return
 		}
-		if err.Error() == "mapping not found: "+id {
+		if errors.Is(err, service.ErrMappingNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"detail": err.Error()})
 			return
 		}
@@ -224,9 +224,9 @@ func StartMapping(c *gin.Context) {
 
 	if err := service.GlobalServices.Mapping.Start(id); err != nil {
 		// Return different status codes based on the error type
-		if err.Error() == "mapping is already running" {
+		if errors.Is(err, service.ErrMappingAlreadyRunning) {
 			c.JSON(http.StatusOK, gin.H{"ok": true, "msg": "Already running"})
-		} else if err.Error() == "mapping not found: "+id {
+		} else if errors.Is(err, service.ErrMappingNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"detail": err.Error()})
 		} else {
 			c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})

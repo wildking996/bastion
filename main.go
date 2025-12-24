@@ -174,11 +174,60 @@ func main() {
 		api.POST("/update/apply", handlers.ApplyUpdate)
 	}
 
+	// API v2 routes
+	apiV2 := r.Group("/api/v2")
+	{
+		// Bastion routes
+		apiV2.GET("/bastions", handlers.ListBastionsV2)
+		apiV2.POST("/bastions", handlers.CreateBastionV2)
+		apiV2.PUT("/bastions/:id", handlers.UpdateBastionV2)
+		apiV2.DELETE("/bastions/:id", handlers.DeleteBastionV2)
+
+		// Mapping routes
+		apiV2.GET("/mappings", handlers.ListMappingsV2)
+		apiV2.POST("/mappings", handlers.CreateMappingV2)
+		apiV2.PUT("/mappings/:id", handlers.UpdateMappingV2)
+		apiV2.DELETE("/mappings/:id", handlers.DeleteMappingV2)
+		apiV2.POST("/mappings/:id/start", handlers.StartMappingV2)
+		apiV2.POST("/mappings/:id/stop", handlers.StopMappingV2)
+
+		// Stats routes
+		apiV2.GET("/stats", handlers.GetStatsV2)
+
+		// HTTP log routes
+		apiV2.GET("/http-logs", handlers.GetHTTPLogsV2)
+		apiV2.GET("/http-logs/:id", handlers.GetHTTPLogDetailV2)
+		apiV2.DELETE("/http-logs", handlers.ClearHTTPLogsV2)
+
+		// Error log routes
+		apiV2.GET("/error-logs", handlers.GetErrorLogsV2)
+		apiV2.DELETE("/error-logs", handlers.ClearErrorLogsV2)
+
+		// System shutdown routes
+		apiV2.POST("/shutdown/generate-code", handlers.GenerateShutdownCodeV2)
+		apiV2.POST("/shutdown/verify", handlers.VerifyAndShutdownV2)
+
+		// Health and metrics routes
+		apiV2.GET("/health", handlers.HealthCheckV2)
+		apiV2.GET("/metrics", handlers.GetMetricsV2)
+
+		// Self-update routes
+		apiV2.GET("/update/check", handlers.CheckUpdateV2)
+		apiV2.GET("/update/proxy", handlers.GetUpdateProxyV2)
+		apiV2.POST("/update/proxy", handlers.SetUpdateProxyV2)
+		apiV2.POST("/update/generate-code", handlers.GenerateUpdateCodeV2)
+		apiV2.POST("/update/apply", handlers.ApplyUpdateV2)
+	}
+
 	// Find an available port
 	port := findAvailablePort(config.Settings.Port)
 	if port != config.Settings.Port {
 		log.Printf("Default port %d is busy. Switched to %d", config.Settings.Port, port)
 	}
+
+	// Create shutdown channel and expose to handlers
+	shutdownChan := make(chan bool, 1)
+	handlers.SetShutdownChannel(shutdownChan)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
@@ -201,10 +250,6 @@ func main() {
 		time.Sleep(1500 * time.Millisecond)
 		openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", port))
 	}()
-
-	// Create shutdown channel and expose to handlers
-	shutdownChan := make(chan bool, 1)
-	handlers.SetShutdownChannel(shutdownChan)
 
 	// Wait for OS interrupt or API-triggered shutdown
 	quit := make(chan os.Signal, 1)
