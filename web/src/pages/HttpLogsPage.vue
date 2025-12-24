@@ -53,10 +53,10 @@
       <template v-if="detailMode === 'request'">
         <el-tabs v-model="requestTab">
           <el-tab-pane name="h" :label="t('httpLogs.headers')">
-            <pre class="mono">{{ requestHeader || t('common.loading') }}</pre>
+            <pre class="mono">{{ displayText(requestHeader, requestHeaderLoading) }}</pre>
           </el-tab-pane>
           <el-tab-pane name="b" :label="t('httpLogs.body')">
-            <pre class="mono">{{ requestBody || t('common.loading') }}</pre>
+            <pre class="mono">{{ displayText(requestBody, requestBodyLoading) }}</pre>
           </el-tab-pane>
         </el-tabs>
       </template>
@@ -64,10 +64,10 @@
       <template v-else-if="detailMode === 'response'">
         <el-tabs v-model="responseTab">
           <el-tab-pane name="h" :label="t('httpLogs.headers')">
-            <pre class="mono">{{ responseHeader || t('common.loading') }}</pre>
+            <pre class="mono">{{ displayText(responseHeader, responseHeaderLoading) }}</pre>
           </el-tab-pane>
           <el-tab-pane name="b" :label="t('httpLogs.body')">
-            <pre class="mono">{{ responseBody || t('common.loading') }}</pre>
+            <pre class="mono">{{ displayText(responseBody, responseBodyLoading) }}</pre>
           </el-tab-pane>
         </el-tabs>
       </template>
@@ -77,20 +77,20 @@
           <el-tab-pane name="req" :label="t('httpLogs.request')">
             <el-tabs v-model="requestTab">
               <el-tab-pane name="h" :label="t('httpLogs.headers')">
-                <pre class="mono">{{ requestHeader || t('common.loading') }}</pre>
+                <pre class="mono">{{ displayText(requestHeader, requestHeaderLoading) }}</pre>
               </el-tab-pane>
               <el-tab-pane name="b" :label="t('httpLogs.body')">
-                <pre class="mono">{{ requestBody || t('common.loading') }}</pre>
+                <pre class="mono">{{ displayText(requestBody, requestBodyLoading) }}</pre>
               </el-tab-pane>
             </el-tabs>
           </el-tab-pane>
           <el-tab-pane name="resp" :label="t('httpLogs.response')">
             <el-tabs v-model="responseTab">
               <el-tab-pane name="h" :label="t('httpLogs.headers')">
-                <pre class="mono">{{ responseHeader || t('common.loading') }}</pre>
+                <pre class="mono">{{ displayText(responseHeader, responseHeaderLoading) }}</pre>
               </el-tab-pane>
               <el-tab-pane name="b" :label="t('httpLogs.body')">
-                <pre class="mono">{{ responseBody || t('common.loading') }}</pre>
+                <pre class="mono">{{ displayText(responseBody, responseBodyLoading) }}</pre>
               </el-tab-pane>
             </el-tabs>
           </el-tab-pane>
@@ -181,9 +181,20 @@ const requestBody = ref("");
 const responseHeader = ref("");
 const responseBody = ref("");
 
+const requestHeaderLoading = ref(false);
+const requestBodyLoading = ref(false);
+const responseHeaderLoading = ref(false);
+const responseBodyLoading = ref(false);
+
 const decodeGzip = ref(false);
 const responseBodyTruncated = ref(false);
 const responseBodyTruncatedReason = ref("");
+
+function displayText(value: string, loading: boolean): string {
+  if (loading) return t("common.loading");
+  if (value === "") return t("common.empty");
+  return value;
+}
 
 async function fetchPart(id: number, part: string, decode?: boolean): Promise<HTTPLogPartResult> {
   const res = await api.get<HTTPLogPartResult>(`/http-logs/${id}/parts/${part}`, {
@@ -198,10 +209,16 @@ async function refetchResponseBody() {
   const row = detailRow.value;
   if (!row) return;
 
-  const result = await fetchPart(row.id, "response_body", decodeGzip.value);
-  responseBody.value = result.data;
-  responseBodyTruncated.value = Boolean(result.truncated);
-  responseBodyTruncatedReason.value = result.truncated_reason || "";
+  responseBodyLoading.value = true;
+  try {
+    const result = await fetchPart(row.id, "response_body", decodeGzip.value);
+    responseBody.value = result.data;
+    responseBodyTruncated.value = Boolean(result.truncated);
+    responseBodyTruncatedReason.value = result.truncated_reason || "";
+  } catch {
+  } finally {
+    responseBodyLoading.value = false;
+  }
 }
 
 async function openDetail(mode: DetailMode, row: HTTPLog) {
@@ -213,6 +230,10 @@ async function openDetail(mode: DetailMode, row: HTTPLog) {
   requestBody.value = "";
   responseHeader.value = "";
   responseBody.value = "";
+  requestHeaderLoading.value = false;
+  requestBodyLoading.value = false;
+  responseHeaderLoading.value = false;
+  responseBodyLoading.value = false;
   decodeGzip.value = false;
   responseBodyTruncated.value = false;
   responseBodyTruncatedReason.value = "";
@@ -222,30 +243,54 @@ async function openDetail(mode: DetailMode, row: HTTPLog) {
   pairTab.value = "req";
 
   if (mode === "request") {
-    const [h, b] = await Promise.all([
-      fetchPart(row.id, "request_header"),
-      fetchPart(row.id, "request_body"),
-    ]);
-    requestHeader.value = h.data;
-    requestBody.value = b.data;
+    requestHeaderLoading.value = true;
+    requestBodyLoading.value = true;
+    try {
+      const [h, b] = await Promise.all([
+        fetchPart(row.id, "request_header"),
+        fetchPart(row.id, "request_body"),
+      ]);
+      requestHeader.value = h.data;
+      requestBody.value = b.data;
+    } catch {
+    } finally {
+      requestHeaderLoading.value = false;
+      requestBodyLoading.value = false;
+    }
     return;
   }
 
   if (mode === "response") {
-    const [h] = await Promise.all([fetchPart(row.id, "response_header")]);
-    responseHeader.value = h.data;
+    responseHeaderLoading.value = true;
+    try {
+      const h = await fetchPart(row.id, "response_header");
+      responseHeader.value = h.data;
+    } catch {
+    } finally {
+      responseHeaderLoading.value = false;
+    }
     await refetchResponseBody();
     return;
   }
 
-  const [rh, rb, sh] = await Promise.all([
-    fetchPart(row.id, "request_header"),
-    fetchPart(row.id, "request_body"),
-    fetchPart(row.id, "response_header"),
-  ]);
-  requestHeader.value = rh.data;
-  requestBody.value = rb.data;
-  responseHeader.value = sh.data;
+  requestHeaderLoading.value = true;
+  requestBodyLoading.value = true;
+  responseHeaderLoading.value = true;
+  try {
+    const [rh, rb, sh] = await Promise.all([
+      fetchPart(row.id, "request_header"),
+      fetchPart(row.id, "request_body"),
+      fetchPart(row.id, "response_header"),
+    ]);
+    requestHeader.value = rh.data;
+    requestBody.value = rb.data;
+    responseHeader.value = sh.data;
+  } catch {
+  } finally {
+    requestHeaderLoading.value = false;
+    requestBodyLoading.value = false;
+    responseHeaderLoading.value = false;
+  }
   await refetchResponseBody();
 }
 
@@ -255,6 +300,10 @@ function resetDetail() {
   requestBody.value = "";
   responseHeader.value = "";
   responseBody.value = "";
+  requestHeaderLoading.value = false;
+  requestBodyLoading.value = false;
+  responseHeaderLoading.value = false;
+  responseBodyLoading.value = false;
   decodeGzip.value = false;
   responseBodyTruncated.value = false;
   responseBodyTruncatedReason.value = "";
