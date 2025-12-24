@@ -325,7 +325,7 @@ func (s *MappingService) Start(id string) error {
 		var portErr *core.PortInUseError
 		if errors.As(err, &portErr) {
 			var mappingsWithPort []models.Mapping
-			if dbErr := s.db.Where("local_port = ?", mapping.LocalPort).Find(&mappingsWithPort).Error; dbErr == nil {
+			if dbErr := s.db.Where("local_port = ? AND id != ?", mapping.LocalPort, mapping.ID).Find(&mappingsWithPort).Error; dbErr == nil {
 				conflicts := make([]core.PortConflict, 0, len(mappingsWithPort))
 				for _, m := range mappingsWithPort {
 					conflicts = append(conflicts, core.PortConflict{

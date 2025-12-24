@@ -151,7 +151,9 @@ func queryPortListenersLsof(port int) ([]PortListener, DiagnosticsMeta) {
 		cmd := fields[0]
 		pid, _ := strconv.Atoi(fields[1])
 
-		// NAME column typically ends with: "TCP <addr> (LISTEN)"
+		// Best-effort parse of lsof output. With `lsof -nP -iTCP:<port> -sTCP:LISTEN`,
+		// the NAME column typically ends with: `TCP <addr> (LISTEN)` (header: COMMAND PID ... NAME).
+		// Different lsof versions/platforms may format NAME differently, so parsing is heuristic.
 		addrTok := ""
 		if fields[len(fields)-1] == "(LISTEN)" && len(fields) >= 2 {
 			addrTok = fields[len(fields)-2]

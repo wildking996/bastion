@@ -126,31 +126,33 @@ func queryPortListeners(network string, port int) ([]PortListener, DiagnosticsMe
 		}
 
 		table := (*mibTCPTableOwnerPID)(unsafe.Pointer(&buf[0]))
-		rows := unsafe.Slice(&table.Table[0], table.NumEntries)
-		for _, r := range rows {
-			if r.State != mibTcpStateListen {
-				continue
+		if table.NumEntries > 0 {
+			rows := unsafe.Slice(&table.Table[0], table.NumEntries)
+			for _, r := range rows {
+				if r.State != mibTcpStateListen {
+					continue
+				}
+				p := portFromDWORD(r.LocalPort)
+				if p != port {
+					continue
+				}
+				ip := ipFromDWORD(r.LocalAddr)
+				pid := int(r.OwningPid)
+				exe := getProcessImagePath(r.OwningPid)
+				name := ""
+				if exe != "" {
+					name = filepath.Base(exe)
+				}
+				listeners = append(listeners, PortListener{
+					Network: "tcp",
+					IP:      ip,
+					Port:    p,
+					Addr:    net.JoinHostPort(ip, strconv.Itoa(p)),
+					PID:     pid,
+					Name:    name,
+					Exe:     exe,
+				})
 			}
-			p := portFromDWORD(r.LocalPort)
-			if p != port {
-				continue
-			}
-			ip := ipFromDWORD(r.LocalAddr)
-			pid := int(r.OwningPid)
-			exe := getProcessImagePath(r.OwningPid)
-			name := ""
-			if exe != "" {
-				name = filepath.Base(exe)
-			}
-			listeners = append(listeners, PortListener{
-				Network: "tcp",
-				IP:      ip,
-				Port:    p,
-				Addr:    net.JoinHostPort(ip, strconv.Itoa(p)),
-				PID:     pid,
-				Name:    name,
-				Exe:     exe,
-			})
 		}
 	}
 
@@ -168,31 +170,33 @@ func queryPortListeners(network string, port int) ([]PortListener, DiagnosticsMe
 		}
 
 		table := (*mibTCP6TableOwnerPID)(unsafe.Pointer(&buf[0]))
-		rows := unsafe.Slice(&table.Table[0], table.NumEntries)
-		for _, r := range rows {
-			if r.State != mibTcpStateListen {
-				continue
+		if table.NumEntries > 0 {
+			rows := unsafe.Slice(&table.Table[0], table.NumEntries)
+			for _, r := range rows {
+				if r.State != mibTcpStateListen {
+					continue
+				}
+				p := portFromDWORD(r.LocalPort)
+				if p != port {
+					continue
+				}
+				ip := net.IP(r.LocalAddr[:]).String()
+				pid := int(r.OwningPid)
+				exe := getProcessImagePath(r.OwningPid)
+				name := ""
+				if exe != "" {
+					name = filepath.Base(exe)
+				}
+				listeners = append(listeners, PortListener{
+					Network: "tcp",
+					IP:      ip,
+					Port:    p,
+					Addr:    net.JoinHostPort(ip, strconv.Itoa(p)),
+					PID:     pid,
+					Name:    name,
+					Exe:     exe,
+				})
 			}
-			p := portFromDWORD(r.LocalPort)
-			if p != port {
-				continue
-			}
-			ip := net.IP(r.LocalAddr[:]).String()
-			pid := int(r.OwningPid)
-			exe := getProcessImagePath(r.OwningPid)
-			name := ""
-			if exe != "" {
-				name = filepath.Base(exe)
-			}
-			listeners = append(listeners, PortListener{
-				Network: "tcp",
-				IP:      ip,
-				Port:    p,
-				Addr:    net.JoinHostPort(ip, strconv.Itoa(p)),
-				PID:     pid,
-				Name:    name,
-				Exe:     exe,
-			})
 		}
 	}
 

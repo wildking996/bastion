@@ -8,6 +8,10 @@ import (
 )
 
 func listenTCPWithDiagnostics(mapping *models.Mapping) (net.Listener, error) {
+	if mapping == nil {
+		return nil, fmt.Errorf("mapping cannot be nil")
+	}
+
 	addr := net.JoinHostPort(mapping.LocalHost, strconv.Itoa(mapping.LocalPort))
 	listener, err := net.Listen("tcp", addr)
 	if err == nil {
