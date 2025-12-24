@@ -12,6 +12,26 @@ import (
 
 var ErrMappingAlreadyExists = errors.New("mapping already exists")
 var ErrMappingRunning = errors.New("mapping is running")
+var ErrMappingNotFound = errors.New("mapping not found")
+var ErrMappingAlreadyRunning = errors.New("mapping is already running")
+var ErrMappingNotRunning = errors.New("mapping is not running")
+
+type sentinelError struct {
+	msg      string
+	sentinel error
+}
+
+func (e sentinelError) Error() string {
+	return e.msg
+}
+
+func (e sentinelError) Unwrap() error {
+	return e.sentinel
+}
+
+func wrapSentinel(msg string, sentinel error) error {
+	return sentinelError{msg: msg, sentinel: sentinel}
+}
 
 // MappingService handles mapping business logic
 type MappingService struct {
@@ -70,7 +90,7 @@ func (s *MappingService) Get(id string) (*models.Mapping, error) {
 	var mapping models.Mapping
 	if err := s.db.First(&mapping, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("mapping not found: %s", id)
+			return nil, wrapSentinel(fmt.Sprintf("mapping not found: %s", id), ErrMappingNotFound)
 		}
 		return nil, fmt.Errorf("failed to get mapping: %w", err)
 	}
@@ -246,7 +266,7 @@ func (s *MappingService) Delete(id string) error {
 func (s *MappingService) Start(id string) error {
 	// Ensure not already running
 	if s.state.SessionExists(id) {
-		return fmt.Errorf("mapping is already running")
+		return wrapSentinel("mapping is already running", ErrMappingAlreadyRunning)
 	}
 
 	// Load mapping configuration
@@ -312,7 +332,7 @@ func (s *MappingService) Start(id string) error {
 // Stop stops a mapping session
 func (s *MappingService) Stop(id string) error {
 	if !s.state.SessionExists(id) {
-		return fmt.Errorf("mapping is not running")
+		return wrapSentinel("mapping is not running", ErrMappingNotRunning)
 	}
 
 	s.state.RemoveAndStopSession(id)

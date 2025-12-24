@@ -165,7 +165,7 @@ func UpdateMappingV2(c *gin.Context) {
 			errV2(c, http.StatusConflict, CodeConflict, "Mapping is running", err.Error())
 			return
 		}
-		if strings.HasPrefix(err.Error(), "mapping not found") {
+		if errors.Is(err, service.ErrMappingNotFound) {
 			errV2(c, http.StatusNotFound, CodeNotFound, "Mapping not found", err.Error())
 			return
 		}
@@ -194,11 +194,11 @@ func StartMappingV2(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := service.GlobalServices.Mapping.Start(id); err != nil {
-		if err.Error() == "mapping is already running" {
+		if errors.Is(err, service.ErrMappingAlreadyRunning) {
 			okV2(c, gin.H{"ok": true, "already_running": true})
 			return
 		}
-		if strings.HasPrefix(err.Error(), "mapping not found") {
+		if errors.Is(err, service.ErrMappingNotFound) {
 			errV2(c, http.StatusNotFound, CodeNotFound, "Mapping not found", err.Error())
 			return
 		}
