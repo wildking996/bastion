@@ -25,7 +25,7 @@ function t(key: string, params?: Record<string, any>): string {
 }
 
 function hasKey(key: string): boolean {
-  return Boolean((i18n.global as any).te?.(key));
+  return i18n.global.te(key);
 }
 
 function firstOwner(data: any): { pid?: number; exe?: string; name?: string } | null {
