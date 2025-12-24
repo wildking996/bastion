@@ -129,6 +129,16 @@ Key flags (see `./bastion --help` for full list):
 
 ## API Endpoints
 
+### API v2 (unified envelope)
+
+All JSON endpoints under `/api/v2` return a unified envelope:
+
+```json
+{"code":"OK","message":"OK","data":{}}
+```
+
+The legacy `/api` endpoints remain unchanged for backward compatibility.
+
 - Bastions: `GET /api/bastions`, `POST /api/bastions`, `PUT /api/bastions/:id`, `DELETE /api/bastions/:id`
 - Mappings: `GET /api/mappings`, `POST /api/mappings` (create only), `PUT /api/mappings/:id` (update when stopped), `DELETE /api/mappings/:id`, `POST /api/mappings/:id/start`, `POST /api/mappings/:id/stop`
   - Types: `tcp` (tunnel), `socks5` (proxy), `http` (forward proxy), `mixed` (HTTP+SOCKS5 on one port; protocol detected from initial bytes)
@@ -275,6 +285,8 @@ CLI 模式：`./bastion --cli --server http://your-server:7788`
 - `--version`：输出版本/构建信息后退出。
 
 ### API
+
+> `/api/v2` 提供统一返回结构：`{ code, message, data }`（例如：`{"code":"OK","message":"OK","data":{}}`）。`/api` 保持兼容不变。
 
 - 跳板机：`GET/POST/PUT/DELETE /api/bastions`
 - 映射：`GET /api/mappings`、`POST /api/mappings`（仅创建）、`PUT /api/mappings/:id`（停止状态可更新）、`DELETE /api/mappings/:id`、`POST /api/mappings/:id/start`、`POST /api/mappings/:id/stop`
