@@ -111,14 +111,14 @@ func CheckUpdate(c *gin.Context) {
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: check fetch latest release failed: %v", err)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
 	assetName, downloadURL, err := selectReleaseAsset(release, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		log.Printf("update: check select asset failed (tag=%s os=%s arch=%s): %v", release.TagName, runtime.GOOS, runtime.GOARCH, err)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -151,7 +151,7 @@ func GenerateUpdateCode(c *gin.Context) {
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: generate code fetch latest release failed: %v", err)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -159,14 +159,14 @@ func GenerateUpdateCode(c *gin.Context) {
 	latest := strings.TrimSpace(release.TagName)
 	if !isVersionNewer(latest, current) {
 		log.Printf("update: generate code skipped (already up to date current=%s latest=%s)", current, latest)
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "already up to date")
+		errV2(c, CodeInvalidRequest, "Invalid request", "already up to date")
 		return
 	}
 
 	code, err := generateSixDigitCode()
 	if err != nil {
 		log.Printf("update: generate code failed: %v", err)
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 
@@ -205,14 +205,14 @@ func GetUpdateProxy(c *gin.Context) {
 func SetUpdateProxy(c *gin.Context) {
 	var req updateProxyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid request")
+		errV2(c, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
 
 	value := strings.TrimSpace(req.ProxyURL)
 	if value == "" {
 		if err := database.DeleteSetting(updateProxySettingKey); err != nil {
-			errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+			errV2(c, CodeInternal, "Internal error", err.Error())
 			return
 		}
 		okV2(c, gin.H{"ok": true})
@@ -221,18 +221,18 @@ func SetUpdateProxy(c *gin.Context) {
 
 	u, err := url.Parse(value)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "invalid proxy url")
+		errV2(c, CodeInvalidRequest, "Invalid request", "invalid proxy url")
 		return
 	}
 	switch strings.ToLower(u.Scheme) {
 	case "http", "https", "socks5", "socks5h":
 	default:
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "proxy url must start with http(s):// or socks5(h)://")
+		errV2(c, CodeInvalidRequest, "Invalid request", "proxy url must start with http(s):// or socks5(h)://")
 		return
 	}
 
 	if err := database.SetSetting(updateProxySettingKey, value); err != nil {
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 	okV2(c, gin.H{"ok": true})
@@ -247,31 +247,31 @@ func ApplyUpdate(c *gin.Context) {
 	var req updateApplyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("update: apply invalid request: %v", err)
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid request")
+		errV2(c, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
 	if shutdownChan == nil {
 		log.Printf("update: apply aborted (shutdown channel not set)")
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", "shutdown channel is not initialized")
+		errV2(c, CodeInternal, "Internal error", "shutdown channel is not initialized")
 		return
 	}
 	if err := verifyUpdateCode(req.Code); err != nil {
 		log.Printf("update: apply code verification failed: %v", err)
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
+		errV2(c, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: apply fetch latest release failed: %v", err)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
 	assetName, downloadURL, err := selectReleaseAsset(release, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		log.Printf("update: apply select asset failed (tag=%s os=%s arch=%s): %v", release.TagName, runtime.GOOS, runtime.GOARCH, err)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -279,14 +279,14 @@ func ApplyUpdate(c *gin.Context) {
 	latest := strings.TrimSpace(release.TagName)
 	if !isVersionNewer(latest, current) {
 		log.Printf("update: apply aborted (already up to date current=%s latest=%s)", current, latest)
-		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "already up to date")
+		errV2(c, CodeInvalidRequest, "Invalid request", "already up to date")
 		return
 	}
 
 	exePath, err := os.Executable()
 	if err != nil {
 		log.Printf("update: apply os.Executable failed: %v", err)
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 	exePath, _ = filepath.Abs(exePath)
@@ -294,7 +294,7 @@ func ApplyUpdate(c *gin.Context) {
 	tmpDir, err := os.MkdirTemp("", "bastion-update-*")
 	if err != nil {
 		log.Printf("update: apply MkdirTemp failed: %v", err)
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 
@@ -307,7 +307,7 @@ func ApplyUpdate(c *gin.Context) {
 	if err := downloadFile(ctx, downloadURL, archivePath); err != nil {
 		log.Printf("update: apply download failed (dst=%s): %v", archivePath, err)
 		_ = os.RemoveAll(tmpDir)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -315,7 +315,7 @@ func ApplyUpdate(c *gin.Context) {
 	if err != nil {
 		log.Printf("update: apply extract failed (archive=%s tmp=%s): %v", archivePath, tmpDir, err)
 		_ = os.RemoveAll(tmpDir)
-		errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 	log.Printf("update: apply extracted binary=%s", newBinPath)
@@ -360,7 +360,7 @@ func ApplyUpdate(c *gin.Context) {
 	if err := cmd.Start(); err != nil {
 		log.Printf("update: apply start helper failed: %v", err)
 		_ = os.RemoveAll(tmpDir)
-		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 	log.Printf("update: apply helper started (pid=%d) helper_log=%s", cmd.Process.Pid, helperLogPath)

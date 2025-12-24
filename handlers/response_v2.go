@@ -22,19 +22,19 @@ const (
 	CodeInternal       = "INTERNAL_ERROR"
 )
 
-func respondV2(c *gin.Context, status int, code, message string, data any) {
+func respondV2(c *gin.Context, code, message string, data any) {
 	c.JSON(http.StatusOK, ResponseV2{Code: code, Message: message, Data: data})
 }
 
 func okV2(c *gin.Context, data any) {
-	respondV2(c, http.StatusOK, CodeOK, "OK", data)
+	respondV2(c, CodeOK, "OK", data)
 }
 
-func errV2(c *gin.Context, status int, code, message string, detail any) {
+func errV2(c *gin.Context, code, message string, detail any) {
 	// Keep the envelope stable: put free-form details into `data.detail`.
 	payload := gin.H{}
 	if detail != nil {
 		payload["detail"] = detail
 	}
-	respondV2(c, status, code, message, payload)
+	respondV2(c, code, message, payload)
 }
