@@ -134,7 +134,7 @@ async function fetchLogs() {
         q: q.value.trim() || undefined,
       },
     });
-    rows.value = res.data.data;
+    rows.value = res.data.items;
     total.value = res.data.total;
   } finally {
     loading.value = false;
@@ -186,9 +186,8 @@ const responseBodyTruncated = ref(false);
 const responseBodyTruncatedReason = ref("");
 
 async function fetchPart(id: number, part: string, decode?: boolean): Promise<HTTPLogPartResult> {
-  const res = await api.get<HTTPLogPartResult>(`/http-logs/${id}`, {
+  const res = await api.get<HTTPLogPartResult>(`/http-logs/${id}/parts/${part}`, {
     params: {
-      part,
       decode: decode ? "gzip" : undefined,
     },
   });

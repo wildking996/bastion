@@ -92,7 +92,7 @@ export type HTTPLog = {
 };
 
 export type HTTPLogsPageResponse = {
-  data: HTTPLog[];
+  items: HTTPLog[];
   page: number;
   page_size: number;
   total: number;
