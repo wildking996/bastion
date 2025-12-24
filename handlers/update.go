@@ -111,14 +111,14 @@ func CheckUpdate(c *gin.Context) {
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: check fetch latest release failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
 	assetName, downloadURL, err := selectReleaseAsset(release, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		log.Printf("update: check select asset failed (tag=%s os=%s arch=%s): %v", release.TagName, runtime.GOOS, runtime.GOARCH, err)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -131,7 +131,7 @@ func CheckUpdate(c *gin.Context) {
 		"update: check result current=%s latest=%s available=%v asset=%s",
 		current, latest, updateAvailable, assetName,
 	)
-	c.JSON(http.StatusOK, updateCheckResponse{
+	okV2(c, updateCheckResponse{
 		CurrentVersion:  normalizeTag(current),
 		LatestVersion:   normalizeTag(latest),
 		UpdateAvailable: updateAvailable,
@@ -151,7 +151,7 @@ func GenerateUpdateCode(c *gin.Context) {
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: generate code fetch latest release failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -159,14 +159,14 @@ func GenerateUpdateCode(c *gin.Context) {
 	latest := strings.TrimSpace(release.TagName)
 	if !isVersionNewer(latest, current) {
 		log.Printf("update: generate code skipped (already up to date current=%s latest=%s)", current, latest)
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "already up to date"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "already up to date")
 		return
 	}
 
 	code, err := generateSixDigitCode()
 	if err != nil {
 		log.Printf("update: generate code failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 
@@ -177,7 +177,7 @@ func GenerateUpdateCode(c *gin.Context) {
 	updateMgr.mu.Unlock()
 
 	log.Printf("update: code generated (expires_at=%s)", expiresAt.UTC().Format(time.RFC3339))
-	c.JSON(http.StatusOK, updateGenerateCodeResponse{
+	okV2(c, updateGenerateCodeResponse{
 		Code:      code,
 		ExpiresAt: expiresAt.Unix(),
 	})
@@ -190,7 +190,7 @@ func GetUpdateProxy(c *gin.Context) {
 	env := readProxyEnv()
 	effective, source := chooseEffectiveProxy(manual, env)
 
-	c.JSON(http.StatusOK, updateProxyResponse{
+	okV2(c, updateProxyResponse{
 		ManualProxy:    redactProxy(manual),
 		EnvHTTPProxy:   redactProxy(env.httpProxy),
 		EnvHTTPSProxy:  redactProxy(env.httpsProxy),
@@ -205,37 +205,37 @@ func GetUpdateProxy(c *gin.Context) {
 func SetUpdateProxy(c *gin.Context) {
 	var req updateProxyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid request"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
 
 	value := strings.TrimSpace(req.ProxyURL)
 	if value == "" {
 		if err := database.DeleteSetting(updateProxySettingKey); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			errV2(c, CodeInternal, "Internal error", err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
+		okV2(c, gin.H{"ok": true})
 		return
 	}
 
 	u, err := url.Parse(value)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid proxy url"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "invalid proxy url")
 		return
 	}
 	switch strings.ToLower(u.Scheme) {
 	case "http", "https", "socks5", "socks5h":
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "proxy url must start with http(s):// or socks5(h)://"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "proxy url must start with http(s):// or socks5(h)://")
 		return
 	}
 
 	if err := database.SetSetting(updateProxySettingKey, value); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	okV2(c, gin.H{"ok": true})
 }
 
 // ApplyUpdate downloads and installs the latest release asset, then restarts via a helper process.
@@ -247,31 +247,31 @@ func ApplyUpdate(c *gin.Context) {
 	var req updateApplyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("update: apply invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid request"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
 	if shutdownChan == nil {
 		log.Printf("update: apply aborted (shutdown channel not set)")
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": "shutdown channel is not initialized"})
+		errV2(c, CodeInternal, "Internal error", "shutdown channel is not initialized")
 		return
 	}
 	if err := verifyUpdateCode(req.Code); err != nil {
 		log.Printf("update: apply code verification failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		log.Printf("update: apply fetch latest release failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
 	assetName, downloadURL, err := selectReleaseAsset(release, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		log.Printf("update: apply select asset failed (tag=%s os=%s arch=%s): %v", release.TagName, runtime.GOOS, runtime.GOARCH, err)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -279,14 +279,14 @@ func ApplyUpdate(c *gin.Context) {
 	latest := strings.TrimSpace(release.TagName)
 	if !isVersionNewer(latest, current) {
 		log.Printf("update: apply aborted (already up to date current=%s latest=%s)", current, latest)
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "already up to date"})
+		errV2(c, CodeInvalidRequest, "Invalid request", "already up to date")
 		return
 	}
 
 	exePath, err := os.Executable()
 	if err != nil {
 		log.Printf("update: apply os.Executable failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 	exePath, _ = filepath.Abs(exePath)
@@ -294,7 +294,7 @@ func ApplyUpdate(c *gin.Context) {
 	tmpDir, err := os.MkdirTemp("", "bastion-update-*")
 	if err != nil {
 		log.Printf("update: apply MkdirTemp failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 
@@ -307,7 +307,7 @@ func ApplyUpdate(c *gin.Context) {
 	if err := downloadFile(ctx, downloadURL, archivePath); err != nil {
 		log.Printf("update: apply download failed (dst=%s): %v", archivePath, err)
 		_ = os.RemoveAll(tmpDir)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 
@@ -315,7 +315,7 @@ func ApplyUpdate(c *gin.Context) {
 	if err != nil {
 		log.Printf("update: apply extract failed (archive=%s tmp=%s): %v", archivePath, tmpDir, err)
 		_ = os.RemoveAll(tmpDir)
-		c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+		errV2(c, CodeBadGateway, "Bad gateway", err.Error())
 		return
 	}
 	log.Printf("update: apply extracted binary=%s", newBinPath)
@@ -360,12 +360,12 @@ func ApplyUpdate(c *gin.Context) {
 	if err := cmd.Start(); err != nil {
 		log.Printf("update: apply start helper failed: %v", err)
 		_ = os.RemoveAll(tmpDir)
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, CodeInternal, "Internal error", err.Error())
 		return
 	}
 	log.Printf("update: apply helper started (pid=%d) helper_log=%s", cmd.Process.Pid, helperLogPath)
 
-	c.JSON(http.StatusOK, updateApplyResponse{
+	okV2(c, updateApplyResponse{
 		OK:            true,
 		TargetVersion: normalizeTag(latest),
 		Message:       "update started; restarting",
