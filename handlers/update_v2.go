@@ -161,6 +161,11 @@ func ApplyUpdateV2(c *gin.Context) {
 		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
+	if shutdownChan == nil {
+		log.Printf("update: apply aborted (shutdown channel not set)")
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Shutdown channel is not initialized", "shutdown channel is not initialized")
+		return
+	}
 	if err := verifyUpdateCode(req.Code); err != nil {
 		log.Printf("update: apply code verification failed: %v", err)
 		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid update code", err.Error())
@@ -286,7 +291,6 @@ func ApplyUpdateV2(c *gin.Context) {
 			shutdownChan <- true
 			return
 		}
-		log.Printf("update: apply forcing os.Exit(0) (shutdown channel not set)")
-		os.Exit(0)
+		log.Printf("update: apply cannot shutdown (shutdown channel not set)")
 	}()
 }

@@ -225,6 +225,10 @@ func main() {
 		log.Printf("Default port %d is busy. Switched to %d", config.Settings.Port, port)
 	}
 
+	// Create shutdown channel and expose to handlers
+	shutdownChan := make(chan bool, 1)
+	handlers.SetShutdownChannel(shutdownChan)
+
 	// Create HTTP server
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	srv := &http.Server{
@@ -246,10 +250,6 @@ func main() {
 		time.Sleep(1500 * time.Millisecond)
 		openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", port))
 	}()
-
-	// Create shutdown channel and expose to handlers
-	shutdownChan := make(chan bool, 1)
-	handlers.SetShutdownChannel(shutdownChan)
 
 	// Wait for OS interrupt or API-triggered shutdown
 	quit := make(chan os.Signal, 1)
