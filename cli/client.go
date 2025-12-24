@@ -18,6 +18,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// apiEnvelope is the canonical JSON response wrapper returned by the server APIs.
+type apiEnvelope struct {
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data"`
+}
+
 // NewClient creates a new HTTP client
 func NewClient(baseURL string) *Client {
 	return &Client{
@@ -61,13 +68,48 @@ func (c *Client) doRequest(method, path string, body interface{}) (*http.Respons
 func (c *Client) handleResponse(resp *http.Response, result interface{}) error {
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	if len(bodyBytes) == 0 {
+		return nil
+	}
+
+	var env apiEnvelope
+	if err := json.Unmarshal(bodyBytes, &env); err == nil && env.Code != "" && env.Message != "" && env.Data != nil {
+		if env.Code != "OK" {
+			detailStr := ""
+			var d struct {
+				Detail any `json:"detail"`
+			}
+			if err := json.Unmarshal(env.Data, &d); err == nil {
+				if s, ok := d.Detail.(string); ok && s != "" {
+					detailStr = s
+				} else if d.Detail != nil {
+					if b, err := json.Marshal(d.Detail); err == nil {
+						detailStr = string(b)
+					}
+				}
+			}
+			if detailStr != "" {
+				return fmt.Errorf("%s (%s): %s", env.Message, env.Code, detailStr)
+			}
+			return fmt.Errorf("%s (%s)", env.Message, env.Code)
+		}
+
+		if result == nil {
+			return nil
+		}
+		if err := json.Unmarshal(env.Data, result); err != nil {
+			return fmt.Errorf("failed to decode response data: %v", err)
+		}
+		return nil
+	}
+
 	if result != nil {
-		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		if err := json.Unmarshal(bodyBytes, result); err != nil {
 			return fmt.Errorf("failed to decode response: %v", err)
 		}
 	}
@@ -81,13 +123,7 @@ func (c *Client) HealthCheck() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("server unhealthy: HTTP %d", resp.StatusCode)
-	}
-
-	return nil
+	return c.handleResponse(resp, nil)
 }
 
 // Bastion management API

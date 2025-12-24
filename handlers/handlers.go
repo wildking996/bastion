@@ -37,27 +37,27 @@ var shutdownMgr = &ShutdownManager{}
 func ListBastions(c *gin.Context) {
 	bastions, err := service.GlobalServices.Bastion.List()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, bastions)
+	okV2(c, bastions)
 }
 
 // CreateBastion creates a bastion host
 func CreateBastion(c *gin.Context) {
 	var req models.BastionCreate
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	bastion, err := service.GlobalServices.Bastion.Create(req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "id": bastion.ID})
+	okV2(c, gin.H{"ok": true, "id": bastion.ID})
 }
 
 // UpdateBastion updates a bastion host
@@ -65,32 +65,32 @@ func UpdateBastion(c *gin.Context) {
 	id := c.Param("id")
 	bastionID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid bastion ID"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid bastion ID")
 		return
 	}
 
 	var req models.BastionCreate
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	// Enforce immutability of bastion name: mappings reference bastions by name.
 	existingBastion, err := service.GlobalServices.Bastion.Get(uint(bastionID))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 	if req.Name != "" && req.Name != existingBastion.Name {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion name is immutable"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "bastion name is immutable")
 		return
 	}
 	if req.Host != "" && req.Host != existingBastion.Host {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion host is immutable"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "bastion host is immutable")
 		return
 	}
 	if req.Port != 0 && req.Port != existingBastion.Port {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "bastion port is immutable"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "bastion port is immutable")
 		return
 	}
 
@@ -104,12 +104,12 @@ func UpdateBastion(c *gin.Context) {
 
 	_, runningMappings, _, checkErr := service.GlobalServices.Bastion.CheckInUse(existingBastion.Name, running)
 	if checkErr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": checkErr.Error()})
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", checkErr.Error())
 		return
 	}
 	if len(runningMappings) > 0 {
-		c.JSON(http.StatusConflict, gin.H{
-			"detail":           "bastion is referenced by running mapping(s); stop them before updating",
+		errV2(c, http.StatusConflict, CodeConflict, "Conflict", gin.H{
+			"reason":           "bastion_in_use",
 			"running_mappings": runningMappings,
 		})
 		return
@@ -117,11 +117,11 @@ func UpdateBastion(c *gin.Context) {
 
 	bastion, err := service.GlobalServices.Bastion.Update(uint(bastionID), req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "id": bastion.ID})
+	okV2(c, gin.H{"ok": true, "id": bastion.ID})
 }
 
 // DeleteBastion deletes a bastion host
@@ -129,47 +129,47 @@ func DeleteBastion(c *gin.Context) {
 	id := c.Param("id")
 	bastionID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid bastion ID"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid bastion ID")
 		return
 	}
 
 	if err := service.GlobalServices.Bastion.Delete(uint(bastionID)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	okV2(c, gin.H{"ok": true})
 }
 
 // ListMappings lists all mappings
 func ListMappings(c *gin.Context) {
 	mappings, err := service.GlobalServices.Mapping.List()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, mappings)
+	okV2(c, mappings)
 }
 
 // CreateMapping creates a mapping
 func CreateMapping(c *gin.Context) {
 	var req models.MappingCreate
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	mapping, err := service.GlobalServices.Mapping.Create(req)
 	if err != nil {
 		if errors.Is(err, service.ErrMappingAlreadyExists) {
-			c.JSON(http.StatusConflict, gin.H{"detail": "mapping already exists; use PUT /api/mappings/:id to update (stopped only)"})
+			errV2(c, http.StatusConflict, CodeConflict, "Conflict", "mapping already exists; use PUT /api/mappings/:id to update (stopped only)")
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "id": mapping.ID})
+	okV2(c, gin.H{"ok": true, "id": mapping.ID})
 }
 
 // UpdateMapping updates a mapping when it is not running.
@@ -179,25 +179,25 @@ func UpdateMapping(c *gin.Context) {
 
 	var req models.MappingCreate
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
 	mapping, err := service.GlobalServices.Mapping.Update(id, req)
 	if err != nil {
 		if errors.Is(err, service.ErrMappingRunning) {
-			c.JSON(http.StatusConflict, gin.H{"detail": "mapping is running; stop it before updating"})
+			errV2(c, http.StatusConflict, CodeConflict, "Conflict", "mapping is running; stop it before updating")
 			return
 		}
 		if errors.Is(err, service.ErrMappingNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"detail": err.Error()})
+			errV2(c, http.StatusNotFound, CodeNotFound, "Not found", err.Error())
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "id": mapping.ID})
+	okV2(c, gin.H{"ok": true, "id": mapping.ID})
 }
 
 // DeleteMapping deletes a mapping
@@ -206,16 +206,16 @@ func DeleteMapping(c *gin.Context) {
 
 	// Disallow deleting an enabled (running) mapping to keep runtime state and DB data consistent.
 	if state.Global.SessionExists(id) {
-		c.JSON(http.StatusConflict, gin.H{"detail": "mapping is running; stop it before deleting"})
+		errV2(c, http.StatusConflict, CodeConflict, "Conflict", "mapping is running; stop it before deleting")
 		return
 	}
 
 	if err := service.GlobalServices.Mapping.Delete(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	okV2(c, gin.H{"ok": true})
 }
 
 // StartMapping starts a mapping
@@ -225,16 +225,16 @@ func StartMapping(c *gin.Context) {
 	if err := service.GlobalServices.Mapping.Start(id); err != nil {
 		// Return different status codes based on the error type
 		if errors.Is(err, service.ErrMappingAlreadyRunning) {
-			c.JSON(http.StatusOK, gin.H{"ok": true, "msg": "Already running"})
+			okV2(c, gin.H{"ok": true, "msg": "Already running"})
 		} else if errors.Is(err, service.ErrMappingNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"detail": err.Error()})
+			errV2(c, http.StatusNotFound, CodeNotFound, "Not found", err.Error())
 		} else {
-			c.JSON(http.StatusBadGateway, gin.H{"detail": err.Error()})
+			errV2(c, http.StatusBadGateway, CodeBadGateway, "Bad gateway", err.Error())
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	okV2(c, gin.H{"ok": true})
 }
 
 // StopMapping stops a mapping
@@ -242,11 +242,11 @@ func StopMapping(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := service.GlobalServices.Mapping.Stop(id); err != nil {
-		c.JSON(http.StatusOK, gin.H{"ok": true, "msg": "Session not found or already stopped"})
+		okV2(c, gin.H{"ok": true, "msg": "Session not found or already stopped"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"ok": true, "msg": "Session stopped"})
+	okV2(c, gin.H{"ok": true, "msg": "Session stopped"})
 }
 
 // GetStats returns mapping statistics
@@ -262,7 +262,7 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, result)
+	okV2(c, result)
 }
 
 // GetHTTPLogs retrieves paginated HTTP logs
@@ -289,13 +289,13 @@ func GetHTTPLogs(c *gin.Context) {
 		if regexStr := c.Query("regex"); regexStr != "" {
 			useRegex, err := strconv.ParseBool(regexStr)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid regex flag"})
+				errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid regex flag")
 				return
 			}
 			if useRegex {
 				re, err := regexp.Compile(q)
 				if err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid regex pattern"})
+					errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid regex pattern")
 					return
 				}
 				filter.QueryRegex = re
@@ -318,7 +318,7 @@ func GetHTTPLogs(c *gin.Context) {
 	if localPortStr := strings.TrimSpace(c.Query("local_port")); localPortStr != "" {
 		p, err := strconv.Atoi(localPortStr)
 		if err != nil || p <= 0 || p > 65535 {
-			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid local_port"})
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid local_port")
 			return
 		}
 		filter.LocalPort = &p
@@ -326,7 +326,7 @@ func GetHTTPLogs(c *gin.Context) {
 	if statusStr := strings.TrimSpace(c.Query("status")); statusStr != "" {
 		code, err := strconv.Atoi(statusStr)
 		if err != nil || code < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid status code"})
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid status code")
 			return
 		}
 		filter.StatusCode = code
@@ -351,7 +351,7 @@ func GetHTTPLogs(c *gin.Context) {
 	if sinceStr := c.Query("since"); sinceStr != "" {
 		tm, err := parseTime(sinceStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid since timestamp"})
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid since timestamp")
 			return
 		}
 		filter.Since = tm
@@ -359,7 +359,7 @@ func GetHTTPLogs(c *gin.Context) {
 	if untilStr := c.Query("until"); untilStr != "" {
 		tm, err := parseTime(untilStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid until timestamp"})
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid until timestamp")
 			return
 		}
 		filter.Until = tm
@@ -367,7 +367,7 @@ func GetHTTPLogs(c *gin.Context) {
 
 	logs, total := service.GlobalServices.Audit.QueryHTTPLogs(filter, page, pageSize)
 
-	c.JSON(http.StatusOK, gin.H{
+	okV2(c, gin.H{
 		"data":      logs,
 		"page":      page,
 		"page_size": pageSize,
@@ -384,7 +384,7 @@ func GetHTTPLogDetail(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid ID"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid ID")
 		return
 	}
 
@@ -394,7 +394,7 @@ func GetHTTPLogDetail(c *gin.Context) {
 		opts := core.HTTPLogPartOptions{}
 		if decodeStr := strings.TrimSpace(c.Query("decode")); decodeStr != "" {
 			if !strings.EqualFold(decodeStr, "gzip") {
-				c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid decode value"})
+				errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid decode value")
 				return
 			}
 			opts.DecodeGzip = true
@@ -403,38 +403,38 @@ func GetHTTPLogDetail(c *gin.Context) {
 		result, err := service.GlobalServices.Audit.GetHTTPLogPart(id, part, opts)
 		if err != nil {
 			if errors.Is(err, core.ErrHTTPLogNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"detail": "Log not found"})
+				errV2(c, http.StatusNotFound, CodeNotFound, "Not found", "Log not found")
 				return
 			}
 			if errors.Is(err, core.ErrInvalidHTTPLogPart) || errors.Is(err, core.ErrNotGzippedResponse) {
-				c.JSON(http.StatusBadRequest, gin.H{"detail": err.Error()})
+				errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
 				return
 			}
 			if errors.Is(err, core.ErrGzipDecodeNotAllowed) {
-				c.JSON(http.StatusBadRequest, gin.H{"detail": "decode is only supported for part=response_body"})
+				errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "decode is only supported for part=response_body")
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"detail": err.Error()})
+			errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", err.Error())
 			return
 		}
 
-		c.JSON(http.StatusOK, result)
+		okV2(c, result)
 		return
 	}
 
 	log := service.GlobalServices.Audit.GetHTTPLogByID(id)
 	if log == nil {
-		c.JSON(http.StatusNotFound, gin.H{"detail": "Log not found"})
+		errV2(c, http.StatusNotFound, CodeNotFound, "Not found", "Log not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, log)
+	okV2(c, log)
 }
 
 // ClearHTTPLogs removes all HTTP logs
 func ClearHTTPLogs(c *gin.Context) {
 	service.GlobalServices.Audit.ClearHTTPLogs()
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "HTTP logs cleared"})
+	okV2(c, gin.H{"ok": true, "message": "HTTP logs cleared"})
 }
 
 // HealthCheck health endpoint
@@ -464,11 +464,11 @@ func HealthCheck(c *gin.Context) {
 
 	if !dbHealthy {
 		health["status"] = "degraded"
-		c.JSON(http.StatusServiceUnavailable, health)
+		respondV2(c, http.StatusServiceUnavailable, CodeInternal, "Service degraded", health)
 		return
 	}
 
-	c.JSON(http.StatusOK, health)
+	okV2(c, health)
 }
 
 type metricsSnapshot struct {
@@ -550,7 +550,7 @@ func GetMetrics(c *gin.Context) {
 		},
 	}
 
-	c.JSON(http.StatusOK, metrics)
+	okV2(c, metrics)
 }
 
 func promLabelEscape(s string) string {
@@ -663,13 +663,13 @@ func GetPrometheusMetrics(c *gin.Context) {
 // GetErrorLogs returns recent error logs
 func GetErrorLogs(c *gin.Context) {
 	logs := core.ErrorLoggerInstance.GetErrorLogs()
-	c.JSON(http.StatusOK, logs)
+	okV2(c, logs)
 }
 
 // ClearErrorLogs wipes error logs
 func ClearErrorLogs(c *gin.Context) {
 	core.ErrorLoggerInstance.ClearErrorLogs()
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Error logs cleared"})
+	okV2(c, gin.H{"ok": true, "message": "Error logs cleared"})
 }
 
 // GenerateShutdownCode creates a shutdown confirmation code
@@ -680,14 +680,14 @@ func GenerateShutdownCode(c *gin.Context) {
 	// Generate a 6-digit random number
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": "Failed to generate code"})
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Internal error", "Failed to generate code")
 		return
 	}
 
 	shutdownMgr.code = fmt.Sprintf("%06d", n.Int64())
 	shutdownMgr.expiresAt = time.Now().Add(5 * time.Minute) // 5-minute expiration
 
-	c.JSON(http.StatusOK, gin.H{
+	okV2(c, gin.H{
 		"code":       shutdownMgr.code,
 		"expires_at": shutdownMgr.expiresAt.Unix(),
 	})
@@ -700,7 +700,7 @@ func VerifyAndShutdown(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid request"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid request")
 		return
 	}
 
@@ -711,7 +711,7 @@ func VerifyAndShutdown(c *gin.Context) {
 
 	// Ensure a code was issued
 	if storedCode == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "No shutdown code generated. Please generate one first."})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "No shutdown code generated. Please generate one first.")
 		return
 	}
 
@@ -720,13 +720,13 @@ func VerifyAndShutdown(c *gin.Context) {
 		shutdownMgr.mu.Lock()
 		shutdownMgr.code = ""
 		shutdownMgr.mu.Unlock()
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Shutdown code expired. Please generate a new one."})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Shutdown code expired. Please generate a new one.")
 		return
 	}
 
 	// Validate the code value
 	if req.Code != storedCode {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "Invalid shutdown code"})
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "Invalid shutdown code")
 		return
 	}
 
@@ -736,7 +736,7 @@ func VerifyAndShutdown(c *gin.Context) {
 	shutdownMgr.mu.Unlock()
 
 	// Respond success
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Shutdown initiated"})
+	okV2(c, gin.H{"ok": true, "message": "Shutdown initiated"})
 
 	// Perform graceful shutdown in the background
 	go func() {

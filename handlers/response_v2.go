@@ -23,7 +23,7 @@ const (
 )
 
 func respondV2(c *gin.Context, status int, code, message string, data any) {
-	c.JSON(status, ResponseV2{Code: code, Message: message, Data: data})
+	c.JSON(http.StatusOK, ResponseV2{Code: code, Message: message, Data: data})
 }
 
 func okV2(c *gin.Context, data any) {
