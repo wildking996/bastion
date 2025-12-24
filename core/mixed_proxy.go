@@ -43,9 +43,9 @@ func NewMixedProxySession(mapping *models.Mapping, bastions []models.Bastion) *M
 
 func (s *MixedProxySession) Start() error {
 	addr := net.JoinHostPort(s.Mapping.LocalHost, strconv.Itoa(s.Mapping.LocalPort))
-	listener, err := net.Listen("tcp", addr)
+	listener, err := listenTCPWithDiagnostics(s.Mapping)
 	if err != nil {
-		return NewResourceBusyError("Port " + strconv.Itoa(s.Mapping.LocalPort) + " is already in use")
+		return err
 	}
 
 	s.listener = listener

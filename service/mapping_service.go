@@ -4,8 +4,10 @@ import (
 	"bastion/core"
 	"bastion/models"
 	"bastion/state"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -320,6 +322,43 @@ func (s *MappingService) Start(id string) error {
 
 	// Start session
 	if err := session.Start(); err != nil {
+		var portErr *core.PortInUseError
+		if errors.As(err, &portErr) {
+			var mappingsWithPort []models.Mapping
+			if dbErr := s.db.Where("local_port = ? AND id != ?", mapping.LocalPort, mapping.ID).Find(&mappingsWithPort).Error; dbErr == nil {
+				conflicts := make([]core.PortConflict, 0, len(mappingsWithPort))
+				for _, m := range mappingsWithPort {
+					conflicts = append(conflicts, core.PortConflict{
+						MappingID: m.ID,
+						LocalHost: m.LocalHost,
+						LocalPort: m.LocalPort,
+						Type:      m.Type,
+						Running:   s.state.SessionExists(m.ID),
+					})
+				}
+				portErr.Detail.InternalConflicts = conflicts
+			} else {
+				if portErr.Detail.Diag.Error == "" {
+					portErr.Detail.Diag.Error = "failed to query internal mapping conflicts: " + dbErr.Error()
+				}
+			}
+
+			if b, marshalErr := json.Marshal(portErr.Detail); marshalErr == nil {
+				log.Printf("mapping start failed (port in use): mapping_id=%s addr=%s detail=%s", mapping.ID, portErr.Detail.Attempt.Addr, string(b))
+			} else {
+				log.Printf("mapping start failed (port in use): mapping_id=%s addr=%s", mapping.ID, portErr.Detail.Attempt.Addr)
+			}
+
+			core.LogErrorWithContext(
+				"Mapping",
+				"Mapping start failed: port is already in use",
+				portErr.Detail.ListenError,
+				map[string]interface{}{
+					"mapping_id":  mapping.ID,
+					"port_in_use": portErr.Detail,
+				},
+			)
+		}
 		return fmt.Errorf("failed to start session: %w", err)
 	}
 
