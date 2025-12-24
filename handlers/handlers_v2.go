@@ -354,6 +354,51 @@ func GetHTTPLogsV2(c *gin.Context) {
 	})
 }
 
+func GetHTTPLogPartV2(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid id", "invalid id")
+		return
+	}
+
+	partStr := strings.TrimSpace(c.Param("part"))
+	if partStr == "" {
+		errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid part", "invalid part")
+		return
+	}
+	part := core.HTTPLogPart(partStr)
+
+	opts := core.HTTPLogPartOptions{}
+	if decodeStr := strings.TrimSpace(c.Query("decode")); decodeStr != "" {
+		if !strings.EqualFold(decodeStr, "gzip") {
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid decode value", "invalid decode")
+			return
+		}
+		opts.DecodeGzip = true
+	}
+
+	result, err := service.GlobalServices.Audit.GetHTTPLogPart(id, part, opts)
+	if err != nil {
+		if errors.Is(err, core.ErrHTTPLogNotFound) {
+			errV2(c, http.StatusNotFound, CodeNotFound, "Log not found", "log not found")
+			return
+		}
+		if errors.Is(err, core.ErrInvalidHTTPLogPart) || errors.Is(err, core.ErrNotGzippedResponse) {
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", err.Error())
+			return
+		}
+		if errors.Is(err, core.ErrGzipDecodeNotAllowed) {
+			errV2(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid request", "decode is only supported for part=response_body")
+			return
+		}
+		errV2(c, http.StatusInternalServerError, CodeInternal, "Failed to fetch log detail", err.Error())
+		return
+	}
+
+	okV2(c, result)
+}
+
 func GetHTTPLogDetailV2(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)

@@ -197,6 +197,7 @@ func main() {
 		// HTTP log routes
 		apiV2.GET("/http-logs", handlers.GetHTTPLogsV2)
 		apiV2.GET("/http-logs/:id", handlers.GetHTTPLogDetailV2)
+		apiV2.GET("/http-logs/:id/parts/:part", handlers.GetHTTPLogPartV2)
 		apiV2.DELETE("/http-logs", handlers.ClearHTTPLogsV2)
 
 		// Error log routes
