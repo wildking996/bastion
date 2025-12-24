@@ -263,7 +263,7 @@ async function openDetail(mode: DetailMode, row: HTTPLog) {
   if (mode === "response") {
     responseHeaderLoading.value = true;
     try {
-      const [h] = await Promise.all([fetchPart(row.id, "response_header")]);
+      const h = await fetchPart(row.id, "response_header");
       responseHeader.value = h.data;
     } catch {
     } finally {
